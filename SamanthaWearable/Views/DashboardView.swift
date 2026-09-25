@@ -49,6 +49,10 @@ struct DashboardView: View {
         .onAppear {
             guard !restored else { return }
             restored = true
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing") {
+                appearance.setLastPage("home")
+                return
+            }
             if let route = ConsoleRoute(storage: appearance.lastPage), appearance.lastPage != "home" {
                 path.append(route)
             }

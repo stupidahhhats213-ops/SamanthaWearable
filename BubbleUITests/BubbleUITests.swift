@@ -103,7 +103,7 @@ final class BubbleUITests: XCTestCase {
 
     private func launch() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments.append("-ApplePersistenceIgnoreState")
+        app.launchArguments += ["-ui-testing", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
         return app
     }
