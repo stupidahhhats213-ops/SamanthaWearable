@@ -92,6 +92,7 @@ struct DashboardView: View {
                 .padding(16)
             }
             .background(HUD.bg.ignoresSafeArea())
+            .tint(HUD.amber)
             .navigationBarHidden(true)
             .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { now in
                 tick = now
