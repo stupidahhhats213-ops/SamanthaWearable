@@ -31,13 +31,13 @@
       },
       "versions": [
         {
-          "version": "0.3.0",
-          "buildVersion": "7",
+          "version": "0.4.0",
+          "buildVersion": "8",
           "date": "2026-09-25",
           "localizedDescription": "Waits until Meta DAT marks the glasses session-eligible before starting the device session.",
-          "downloadURL": "https://github.com/stupidahhhats213-ops/SamanthaWearable/releases/download/samantha-0.3.0-build7/SamanthaWearable-0.3.0-build7.ipa",
-          "size": 5395191,
-          "sha256": "47f65111ba51a4234d74df2c8e9983d6ac98bca7cca4587c3f9360c8d2e6cacb",
+          "downloadURL": "https://github.com/stupidahhhats213-ops/SamanthaWearable/releases/download/samantha-0.4.0-build8/SamanthaWearable-0.4.0-build8.ipa",
+          "size": 5412181,
+          "sha256": "2eef9924171a8dbb0a6b1979cce894067158214fd0fedc2048e9c4815ac38acb",
           "minOSVersion": "17.2"
         }
       ]
