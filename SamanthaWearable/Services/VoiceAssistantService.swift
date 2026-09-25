@@ -16,7 +16,7 @@ struct SpokenReply {
     var gpu: Int?
 }
 
-final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     enum Phase: String {
         case idle = "IDLE"
         case wakeListening = "WAKE LISTENING"
@@ -47,6 +47,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
 
     private let synthesizer = AVSpeechSynthesizer()
     private var playbackNode: AVAudioPlayerNode?
+    private var speakerPlayer: AVAudioPlayer?
     private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
@@ -126,6 +127,8 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     func stopSpeaking() {
         speakGeneration += 1
         synthesizer.stopSpeaking(at: .immediate)
+        speakerPlayer?.stop()
+        speakerPlayer = nil
         stopPlaybackNode()
         resumeWake()
     }
@@ -231,7 +234,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         refreshRoute()
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP, .mixWithOthers])
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP])
+            if let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+                try session.setPreferredInput(mic)
+            }
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             phase = .error
@@ -421,48 +427,25 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     }
 
     private func playWav(_ data: Data) throws {
-        let pcm = try decodeWav(data)
-        guard !pcm.samples.isEmpty else { throw URLError(.cannotDecodeContentData) }
         stopCaptureEngineOnly()
         audioEngine.reset()
-        try activateSpokenSession()
-        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: pcm.sampleRate, channels: 1, interleaved: false)
-        guard let format, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(pcm.samples.count)),
-              let channel = buffer.floatChannelData else {
+        try activatePlaybackRoute()
+        speakerPlayer = try AVAudioPlayer(data: data)
+        speakerPlayer?.delegate = self
+        speakerPlayer?.volume = 1
+        guard speakerPlayer?.play() == true else {
             throw URLError(.cannotDecodeContentData)
         }
-        buffer.frameLength = AVAudioFrameCount(pcm.samples.count)
-        pcm.samples.withUnsafeBufferPointer { source in
-            channel[0].update(from: source.baseAddress!, count: source.count)
-        }
-        let node = AVAudioPlayerNode()
-        audioEngine.attach(node)
-        audioEngine.connect(node, to: audioEngine.mainMixerNode, format: format)
-        audioEngine.mainMixerNode.outputVolume = 1
-        playbackNode = node
-        audioEngine.prepare()
-        try audioEngine.start()
-        let token = speakGeneration
-        node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, token == self.speakGeneration else { return }
-                print("[TTS] playback finished")
-                self.stopPlaybackNode()
-                self.resumeWake()
-            }
-        }
-        node.volume = 1
-        node.play()
         refreshRoute()
-        print("[TTS] engine route=\(audioRoute) \(routeDetail) frames=\(pcm.samples.count)")
+        print("[TTS] player route=\(audioRoute) \(routeDetail)")
     }
 
     private func speak(_ text: String) {
-        refreshRoute()
         stopCaptureEngineOnly()
         audioEngine.reset()
-        try? activateSpokenSession()
+        try? activatePlaybackRoute()
         phase = .speaking
+        refreshRoute()
         print("[TTS] route=\(audioRoute) \(routeDetail)")
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = preferredVoice()
@@ -471,46 +454,28 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         synthesizer.speak(utterance)
     }
 
-    private func activateSpokenSession() throws {
+    private func activatePlaybackRoute() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP, .mixWithOthers])
+        try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP])
+        if let glasses = (session.availableInputs ?? []).first(where: { isGlassesName($0.portName) }) {
+            try session.setPreferredInput(glasses)
+            try session.overrideOutputAudioPort(.none)
+            print("[AudioRoute] playback input \(glasses.portName)")
+        } else if session.currentRoute.outputs.contains(where: { isGlassesName($0.portName) }) {
+            try session.overrideOutputAudioPort(.none)
+            print("[AudioRoute] playback keeps glasses output")
+        } else {
+            try session.setPreferredInput(nil)
+            try session.overrideOutputAudioPort(.speaker)
+            print("[AudioRoute] no glasses, phone speaker")
+        }
         try session.setActive(true)
+        refreshRoute()
     }
 
-    private func decodeWav(_ data: Data) throws -> (samples: [Float], sampleRate: Double) {
-        guard data.count > 44 else { throw URLError(.cannotDecodeContentData) }
-        var offset = 12
-        var sampleRate = 24000.0
-        var channels = 1
-        var bits = 16
-        var pcm = Data()
-        while offset + 8 <= data.count {
-            let chunk = data.subdata(in: offset..<(offset + 4))
-            let size = Int(UInt32(littleEndian: data.subdata(in: (offset + 4)..<(offset + 8)).withUnsafeBytes { $0.load(as: UInt32.self) }))
-            let start = offset + 8
-            let end = min(data.count, start + size)
-            if chunk == Data("fmt ".utf8), end - start >= 16 {
-                channels = Int(UInt16(littleEndian: data.subdata(in: (start + 2)..<(start + 4)).withUnsafeBytes { $0.load(as: UInt16.self) }))
-                sampleRate = Double(UInt32(littleEndian: data.subdata(in: (start + 4)..<(start + 8)).withUnsafeBytes { $0.load(as: UInt32.self) }))
-                bits = Int(UInt16(littleEndian: data.subdata(in: (start + 14)..<(start + 16)).withUnsafeBytes { $0.load(as: UInt16.self) }))
-            } else if chunk == Data("data".utf8) {
-                pcm = data.subdata(in: start..<end)
-                break
-            }
-            offset = start + size + (size % 2)
-        }
-        guard bits == 16, channels >= 1, !pcm.isEmpty else { throw URLError(.cannotDecodeContentData) }
-        var samples: [Float] = []
-        samples.reserveCapacity(pcm.count / 2 / channels)
-        pcm.withUnsafeBytes { raw in
-            let frames = raw.count / 2 / channels
-            let shorts = raw.bindMemory(to: Int16.self)
-            for frame in 0..<frames {
-                let value = Int16(littleEndian: shorts[frame * channels])
-                samples.append(Float(value) / 32768.0)
-            }
-        }
-        return (samples, sampleRate)
+    private func isGlassesName(_ name: String) -> Bool {
+        let lowered = name.lowercased()
+        return lowered.contains("meta") || lowered.contains("ray-ban") || lowered.contains("rayban")
     }
 
     private func stopPlaybackNode() {
@@ -599,6 +564,22 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         }
     }
 
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            self.speakerPlayer = nil
+            if flag {
+                print("[TTS] playback finished")
+                self.resumeWake()
+            } else {
+                let text = self.fallbackText
+                if text.isEmpty {
+                    self.resumeWake()
+                } else {
+                    self.speak(text)
+                }
+            }
+        }
+    }
 }
 
 import AudioToolbox
