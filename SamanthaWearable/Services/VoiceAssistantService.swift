@@ -95,8 +95,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var streamFinished = false
     private var f5AudioStarted = false
     private var fillerUtterance = false
+    private var spokenFillers: [AVSpeechUtterance] = []
     private var fillerIndex = 0
     private var progressWork: DispatchWorkItem?
+    private var listenerWarningSpoken = false
     private var followUpWork: DispatchWorkItem?
     private var followUpEnds: Date?
     private var followUpSeconds: Double = 10
@@ -512,6 +514,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             armLocalAck()
         }
         guard let onCommand else {
+            cancelLocalAck()
             phase = .error
             lastError = "No command handler"
             return
@@ -648,10 +651,14 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     }
 
     private func speakFiller(_ text: String) {
+        if fillerUtterance, synthesizer.isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
         fillerUtterance = true
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = preferredVoice()
         utterance.rate = 0.5
+        spokenFillers.append(utterance)
         synthesizer.speak(utterance)
     }
 
@@ -754,6 +761,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         audioEngine.reset()
         try await Self.configureAudioSession(playback: true)
         refreshRoute()
+        cancelLocalAck()
         speakerPlayer = try AVAudioPlayer(data: data)
         speakerPlayer?.delegate = self
         speakerPlayer?.volume = 1
@@ -774,6 +782,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             guard token == self.speakGeneration, self.phase == .speaking else { return }
             self.refreshRoute()
             print("[TTS] route=\(self.audioRoute) \(self.routeDetail)")
+            self.cancelLocalAck()
             let utterance = AVSpeechUtterance(string: text)
             utterance.voice = self.preferredVoice()
             utterance.rate = 0.48
@@ -935,8 +944,11 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
-            if self.fillerUtterance {
-                self.fillerUtterance = false
+            if self.spokenFillers.contains(where: { $0 === utterance }) {
+                self.spokenFillers.removeAll { $0 === utterance }
+                if self.spokenFillers.isEmpty {
+                    self.fillerUtterance = false
+                }
                 return
             }
             print("[TTS] finished")
