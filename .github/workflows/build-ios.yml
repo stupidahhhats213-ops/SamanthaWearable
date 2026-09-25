@@ -1,0 +1,196 @@
+name: Build iOS (unsigned IPA)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Unsigned iphoneos IPA
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inspect available Xcode apps
+        run: |
+          set -euo pipefail
+          echo "== macOS =="
+          sw_vers
+          echo "== /Applications Xcode* =="
+          ls -1 /Applications | grep -i Xcode || true
+          echo "== xcodebuild -version (default) =="
+          xcodebuild -version || true
+          echo "== installed Xcode select candidates =="
+          ls -d /Applications/Xcode*.app/Contents/Developer 2>/dev/null || true
+
+      - name: Select Xcode 26.x
+        run: |
+          set -euo pipefail
+          # Prefer newest Xcode 26.x (e.g. 26.6), else any Xcode 26.*, else fail.
+          CANDIDATES=()
+          while IFS= read -r path; do
+            CANDIDATES+=("$path")
+          done < <(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V || true)
+
+          SELECTED=""
+          # Prefer exact/high 26.6 first if present
+          for app in "${CANDIDATES[@]}"; do
+            if [[ "$(basename "$app")" == "Xcode_26.6.app" ]] || [[ "$(basename "$app")" == "Xcode-26.6.app" ]]; then
+              SELECTED="$app"
+              break
+            fi
+          done
+          if [[ -z "$SELECTED" ]]; then
+            for app in "${CANDIDATES[@]}"; do
+              VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || echo "")
+              echo "Found $(basename "$app") version=$VER"
+              if [[ "$VER" == 26.* ]]; then
+                SELECTED="$app"
+              fi
+            done
+          fi
+          # sort-V last match is highest 26.x when looping ascending — re-pick max 26
+          BEST=""
+          BEST_VER="0"
+          for app in "${CANDIDATES[@]}"; do
+            VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || echo "0")
+            if [[ "$VER" == 26.* ]]; then
+              if [[ "$(printf '%s\n' "$BEST_VER" "$VER" | sort -V | tail -1)" == "$VER" ]]; then
+                BEST="$app"
+                BEST_VER="$VER"
+              fi
+            fi
+          done
+          if [[ -n "$BEST" ]]; then
+            SELECTED="$BEST"
+          fi
+
+          if [[ -z "$SELECTED" ]]; then
+            echo "ERROR: No Xcode 26.x found on runner"
+            ls -la /Applications
+            exit 1
+          fi
+
+          echo "Selecting: $SELECTED ($BEST_VER)"
+          sudo xcode-select -s "$SELECTED/Contents/Developer"
+          xcodebuild -version
+          swift --version
+          xcode-select -p
+
+      - name: List schemes
+        run: |
+          set -euo pipefail
+          xcodebuild -list -project SamanthaWearable.xcodeproj
+
+      - name: Resolve Swift packages
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project SamanthaWearable.xcodeproj \
+            -scheme SamanthaWearable
+          echo "== Package.resolved (if present) =="
+          find . -name Package.resolved -print -exec cat {} \; || true
+          if ! find . -name Package.resolved -print0 | xargs -0 grep -q 'meta-wearables-dat-ios' 2>/dev/null; then
+            echo "WARN: Package.resolved may be missing; checking DerivedData later"
+          fi
+          # Confirm pin in project
+          grep -n 'meta-wearables-dat-ios\|1.0.0' SamanthaWearable.xcodeproj/project.pbxproj
+
+      - name: Build Release iphoneos (unsigned)
+        run: |
+          set -euo pipefail
+          DERIVED="${RUNNER_TEMP}/DerivedData"
+          mkdir -p "$DERIVED"
+          xcodebuild \
+            -project SamanthaWearable.xcodeproj \
+            -scheme SamanthaWearable \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build | tee "$RUNNER_TEMP/xcodebuild.log"
+          # Fail if build did not succeed (xcodebuild exit already fails; also grep)
+          grep -q 'BUILD SUCCEEDED' "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Locate .app and verify binary
+        id: app
+        run: |
+          set -euo pipefail
+          DERIVED="${RUNNER_TEMP}/DerivedData"
+          APP=$(find "$DERIVED/Build/Products" -path '*/Release-iphoneos/SamanthaWearable.app' -type d | head -1)
+          if [[ -z "$APP" ]]; then
+            echo "ERROR: SamanthaWearable.app not found"
+            find "$DERIVED/Build/Products" -maxdepth 4 -type d -print || true
+            exit 1
+          fi
+          echo "APP=$APP"
+          echo "app_path=$APP" >> "$GITHUB_OUTPUT"
+          file "$APP/SamanthaWearable"
+          plutil -p "$APP/Info.plist"
+          # Copy for artifact packaging
+          STAGE="${RUNNER_TEMP}/stage"
+          mkdir -p "$STAGE"
+          ditto "$APP" "$STAGE/SamanthaWearable.app"
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Confirm Meta DAT 1.0.0 resolved
+        run: |
+          set -euo pipefail
+          DERIVED="${RUNNER_TEMP}/DerivedData"
+          echo "== Searching Package.resolved =="
+          find "$DERIVED" . -name Package.resolved 2>/dev/null | head -20
+          RESOLVED=$(find "$DERIVED" . -name Package.resolved 2>/dev/null | head -1 || true)
+          if [[ -n "$RESOLVED" ]]; then
+            cat "$RESOLVED"
+            grep -A2 'meta-wearables-dat-ios' "$RESOLVED" || true
+            if ! grep -q '"version" : "1.0.0"' "$RESOLVED" && ! grep -q '1.0.0' "$RESOLVED"; then
+              echo "ERROR: Expected meta-wearables-dat-ios 1.0.0 in Package.resolved"
+              exit 1
+            fi
+          else
+            # Fallback: framework embedded version
+            APP=$(find "$DERIVED/Build/Products" -path '*/Release-iphoneos/SamanthaWearable.app' -type d | head -1)
+            find "$APP" -iname '*MWDAT*' | head -40
+          fi
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          STAGE="${RUNNER_TEMP}/stage"
+          OUT="${RUNNER_TEMP}/ipa"
+          mkdir -p "$OUT/Payload"
+          rm -rf "$OUT/Payload/SamanthaWearable.app"
+          ditto "$STAGE/SamanthaWearable.app" "$OUT/Payload/SamanthaWearable.app"
+          (
+            cd "$OUT"
+            zip -qry SamanthaWearable-unsigned.ipa Payload
+          )
+          unzip -l "$OUT/SamanthaWearable-unsigned.ipa" | head -40
+          ls -lh "$OUT/SamanthaWearable-unsigned.ipa"
+          shasum -a 256 "$OUT/SamanthaWearable-unsigned.ipa"
+          # Stage artifacts at fixed paths for upload
+          mkdir -p "$GITHUB_WORKSPACE/ci-artifacts"
+          cp "$OUT/SamanthaWearable-unsigned.ipa" "$GITHUB_WORKSPACE/ci-artifacts/"
+          ditto "$STAGE/SamanthaWearable.app" "$GITHUB_WORKSPACE/ci-artifacts/SamanthaWearable.app"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SamanthaWearable-iOS
+          path: |
+            ci-artifacts/SamanthaWearable-unsigned.ipa
+            ci-artifacts/SamanthaWearable.app
+          if-no-files-found: error
+          retention-days: 14

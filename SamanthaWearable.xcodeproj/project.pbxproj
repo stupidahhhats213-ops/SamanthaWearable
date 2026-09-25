@@ -1,0 +1,384 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* SamanthaWearableApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* SamanthaWearableApp.swift */; };
+		A10000000000000000000002 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* AppConfig.swift */; };
+		A10000000000000000000003 /* ServerHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* ServerHealth.swift */; };
+		A10000000000000000000004 /* WearableHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* WearableHealth.swift */; };
+		A10000000000000000000005 /* DeviceRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* DeviceRegistration.swift */; };
+		A10000000000000000000006 /* HeartbeatPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* HeartbeatPayload.swift */; };
+		A10000000000000000000007 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* KeychainStore.swift */; };
+		A10000000000000000000008 /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* DeviceIdentity.swift */; };
+		A10000000000000000000009 /* DeviceTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* DeviceTelemetry.swift */; };
+		A1000000000000000000000A /* SamanthaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* SamanthaAPI.swift */; };
+		A1000000000000000000000B /* HeartbeatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* HeartbeatService.swift */; };
+		A1000000000000000000000C /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* DashboardViewModel.swift */; };
+		A1000000000000000000000D /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* DashboardView.swift */; };
+		A1000000000000000000000E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* SettingsView.swift */; };
+		A1000000000000000000000F /* StatusRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* StatusRow.swift */; };
+		A10000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* Assets.xcassets */; };
+		A10000000000000000000011 /* MetaGlassesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MetaGlassesService.swift */; };
+		A10000000000000000000013 /* GlassesTelemetryProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* GlassesTelemetryProviding.swift */; };
+		A10000000000000000000014 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000015 /* MWDATCore */; };
+		A10000000000000000000016 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000017 /* MWDATCamera */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		C10000000000000000000001 /* SamanthaWearable.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SamanthaWearable.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000001 /* SamanthaWearableApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SamanthaWearableApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* ServerHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerHealth.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* WearableHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WearableHealth.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* DeviceRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistration.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* HeartbeatPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatPayload.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
+		B10000000000000000000009 /* DeviceTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTelemetry.swift; sourceTree = "<group>"; };
+		B1000000000000000000000A /* SamanthaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SamanthaAPI.swift; sourceTree = "<group>"; };
+		B1000000000000000000000B /* HeartbeatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatService.swift; sourceTree = "<group>"; };
+		B1000000000000000000000C /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		B1000000000000000000000D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		B1000000000000000000000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B1000000000000000000000F /* StatusRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusRow.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000012 /* MetaGlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesService.swift; sourceTree = "<group>"; };
+		B10000000000000000000013 /* GlassesTelemetryProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesTelemetryProviding.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D10000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000014 /* MWDATCore in Frameworks */,
+				A10000000000000000000016 /* MWDATCamera in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E10000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				E10000000000000000000002 /* SamanthaWearable */,
+				E10000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E10000000000000000000002 /* SamanthaWearable */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* SamanthaWearableApp.swift */,
+				E10000000000000000000004 /* Config */,
+				E10000000000000000000005 /* Models */,
+				E10000000000000000000006 /* Services */,
+				E10000000000000000000007 /* ViewModels */,
+				E10000000000000000000008 /* Views */,
+				B10000000000000000000010 /* Assets.xcassets */,
+				B10000000000000000000011 /* Info.plist */,
+			);
+			path = SamanthaWearable;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C10000000000000000000001 /* SamanthaWearable.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000002 /* AppConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000003 /* ServerHealth.swift */,
+				B10000000000000000000004 /* WearableHealth.swift */,
+				B10000000000000000000005 /* DeviceRegistration.swift */,
+				B10000000000000000000006 /* HeartbeatPayload.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000006 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000007 /* KeychainStore.swift */,
+				B10000000000000000000008 /* DeviceIdentity.swift */,
+				B10000000000000000000009 /* DeviceTelemetry.swift */,
+				B1000000000000000000000A /* SamanthaAPI.swift */,
+				B1000000000000000000000B /* HeartbeatService.swift */,
+				B10000000000000000000013 /* GlassesTelemetryProviding.swift */,
+				B10000000000000000000012 /* MetaGlassesService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000007 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000000C /* DashboardViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000008 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000000D /* DashboardView.swift */,
+				B1000000000000000000000E /* SettingsView.swift */,
+				B1000000000000000000000F /* StatusRow.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F10000000000000000000001 /* SamanthaWearable */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000004 /* Build configuration list for PBXNativeTarget "SamanthaWearable" */;
+			buildPhases = (
+				F10000000000000000000002 /* Sources */,
+				D10000000000000000000001 /* Frameworks */,
+				F10000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SamanthaWearable;
+			packageProductDependencies = (
+				A10000000000000000000015 /* MWDATCore */,
+				A10000000000000000000017 /* MWDATCamera */,
+			);
+			productName = SamanthaWearable;
+			productReference = C10000000000000000000001 /* SamanthaWearable.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F10000000000000000000005 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					F10000000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = F10000000000000000000006 /* Build configuration list for PBXProject "SamanthaWearable" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E10000000000000000000001;
+			packageReferences = (
+				A10000000000000000000018 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+			);
+			productRefGroup = E10000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F10000000000000000000001 /* SamanthaWearable */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000010 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F10000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* SamanthaWearableApp.swift in Sources */,
+				A10000000000000000000002 /* AppConfig.swift in Sources */,
+				A10000000000000000000003 /* ServerHealth.swift in Sources */,
+				A10000000000000000000004 /* WearableHealth.swift in Sources */,
+				A10000000000000000000005 /* DeviceRegistration.swift in Sources */,
+				A10000000000000000000006 /* HeartbeatPayload.swift in Sources */,
+				A10000000000000000000007 /* KeychainStore.swift in Sources */,
+				A10000000000000000000008 /* DeviceIdentity.swift in Sources */,
+				A10000000000000000000009 /* DeviceTelemetry.swift in Sources */,
+				A1000000000000000000000A /* SamanthaAPI.swift in Sources */,
+				A1000000000000000000000B /* HeartbeatService.swift in Sources */,
+				A10000000000000000000013 /* GlassesTelemetryProviding.swift in Sources */,
+				A10000000000000000000011 /* MetaGlassesService.swift in Sources */,
+				A1000000000000000000000C /* DashboardViewModel.swift in Sources */,
+				A1000000000000000000000D /* DashboardView.swift in Sources */,
+				A1000000000000000000000E /* SettingsView.swift in Sources */,
+				A1000000000000000000000F /* StatusRow.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F10000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F10000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		F10000000000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SamanthaWearable/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Samantha;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F1000000000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SamanthaWearable/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Samantha;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F10000000000000000000006 /* Build configuration list for PBXProject "SamanthaWearable" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000007 /* Debug */,
+				F10000000000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000004 /* Build configuration list for PBXNativeTarget "SamanthaWearable" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000009 /* Debug */,
+				F1000000000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000018 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000015 /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000018 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+		A10000000000000000000017 /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000018 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F10000000000000000000005 /* Project object */;
+}
