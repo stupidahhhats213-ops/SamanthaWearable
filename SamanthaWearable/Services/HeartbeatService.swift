@@ -98,6 +98,11 @@ final class HeartbeatService: ObservableObject {
             )
             #endif
         } catch {
+            if Task.isCancelled { return }
+            let ns = error as NSError
+            if (error as? URLError)?.code == .cancelled || (ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled) {
+                return
+            }
             failureCount += 1
             lastError = error.localizedDescription
             #if DEBUG

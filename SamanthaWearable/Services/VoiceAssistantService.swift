@@ -281,6 +281,15 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                     self.consume(transcript: result.bestTranscription.formattedString, isFinal: result.isFinal)
                 }
                 if let error, self.phase == .wakeListening || self.phase == .listening {
+                    let ns = error as NSError
+                    let cancelled = ns.code == NSURLErrorCancelled
+                        || ns.code == 216
+                        || ns.code == 203
+                        || error.localizedDescription.lowercased().contains("cancel")
+                    if cancelled {
+                        print("[SpeechRecognition] ignored \(error.localizedDescription)")
+                        return
+                    }
                     self.lastError = error.localizedDescription
                     print("[SpeechRecognition] \(error.localizedDescription)")
                     self.stopCaptureEngineOnly()

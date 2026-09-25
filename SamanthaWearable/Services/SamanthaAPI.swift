@@ -46,8 +46,8 @@ actor SamanthaAPI {
         self.authEnabled = authEnabled
         self.apiToken = apiToken
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 8
-        config.timeoutIntervalForResource = 12
+        config.timeoutIntervalForRequest = 20
+        config.timeoutIntervalForResource = 60
         config.waitsForConnectivity = false
         self.session = URLSession(configuration: config)
     }

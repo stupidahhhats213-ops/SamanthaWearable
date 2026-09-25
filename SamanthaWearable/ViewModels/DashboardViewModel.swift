@@ -99,6 +99,7 @@ final class DashboardViewModel: ObservableObject {
                     gpu: response.tts?.gpu
                 )
             } catch {
+                if self.isBenignCancellation(error) { return nil }
                 self.lastError = error.localizedDescription
                 print("[WearableVoice] command failed \(error.localizedDescription)")
                 return nil
@@ -269,6 +270,7 @@ final class DashboardViewModel: ObservableObject {
                 heartbeat.start()
             }
         } catch {
+            if Task.isCancelled || isBenignCancellation(error) { return }
             connectionState = .error
             lastError = error.localizedDescription
             registered = false
@@ -277,6 +279,13 @@ final class DashboardViewModel: ObservableObject {
             print("[Session] FAIL \(error.localizedDescription)")
             #endif
         }
+    }
+
+    private func isBenignCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let url = error as? URLError, url.code == .cancelled { return true }
+        let ns = error as NSError
+        return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
     }
 
     private func runTestConnection() async {
