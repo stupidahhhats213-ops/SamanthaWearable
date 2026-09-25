@@ -8,6 +8,8 @@ final class SamanthaBubbleModel: ObservableObject {
     @Published var dragCenter: CGPoint?
     private var session = BubbleSession()
     private var anchor = CGPoint.zero
+    var pressArmed = false
+    var pressMoved: CGFloat = 0
 
     var showsBackdrop: Bool { session.showsBackdrop }
     var nestedID: String? { phase.nestedID }
@@ -128,7 +130,6 @@ struct BubbleOverlay: View {
             }
             SamanthaBubbleButton(isDragging: model.phase == .dragging)
                 .offset(x: bubbleRect.minX, y: bubbleRect.minY)
-                .onTapGesture { animate { model.tap() } }
                 .highPriorityGesture(dragGesture(bounds: bounds, center: center))
                 .zIndex(3)
         }
@@ -192,24 +193,36 @@ struct BubbleOverlay: View {
     }
 
     private func dragGesture(bounds: BubbleSafeBounds, center: CGPoint) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.32, maximumDistance: 16)
-            .sequenced(before: DragGesture(minimumDistance: 0))
+        DragGesture(minimumDistance: 0)
             .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
-                if model.phase != .dragging {
-                    model.beginDrag(at: center)
+                let moved = hypot(value.translation.width, value.translation.height)
+                model.pressMoved = moved
+                if !model.pressArmed {
+                    model.pressArmed = true
+                    let origin = center
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                        guard model.pressArmed, model.pressMoved < 18, model.phase != .dragging else { return }
+                        model.beginDrag(at: origin)
+                    }
                 }
-                if let drag {
-                    model.follow(translation: drag.translation, bounds: bounds)
+                if model.phase == .dragging {
+                    model.follow(translation: value.translation, bounds: bounds)
                 }
             }
             .onEnded { value in
-                guard case .second(true, _) = value else { return }
-                let apply = { model.endDrag(bounds: bounds, appearance: appearance) }
-                if bubbleAllowsAnimation(systemReduceMotion: UIAccessibility.isReduceMotionEnabled, preferenceOff: appearance.motion == .off) {
-                    withAnimation(.easeOut(duration: 0.16)) { apply() }
-                } else {
-                    apply()
+                let moved = hypot(value.translation.width, value.translation.height)
+                let dragging = model.phase == .dragging
+                model.pressArmed = false
+                model.pressMoved = 0
+                if dragging {
+                    let apply = { model.endDrag(bounds: bounds, appearance: appearance) }
+                    if bubbleAllowsAnimation(systemReduceMotion: UIAccessibility.isReduceMotionEnabled, preferenceOff: appearance.motion == .off) {
+                        withAnimation(.easeOut(duration: 0.16)) { apply() }
+                    } else {
+                        apply()
+                    }
+                } else if moved < 18 {
+                    animate { model.tap() }
                 }
             }
     }
