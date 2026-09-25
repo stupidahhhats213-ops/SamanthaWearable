@@ -2,6 +2,7 @@
 import Foundation
 
 /// Shared telemetry surface for Samantha heartbeats and dashboard UI.
+@MainActor
 protocol GlassesTelemetryProviding: AnyObject {
     var glassesConnected: Bool { get }
     var glassesBatteryPercent: Double? { get }

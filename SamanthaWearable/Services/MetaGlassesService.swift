@@ -65,8 +65,8 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
 
     private var deviceSession: DeviceSession?
     private var deviceSelector: AutoDeviceSelector?
-    private var camera: Camera?
-    private var stream: Stream?
+    private var camera: MWDATCamera.Camera?
+    private var stream: MWDATCamera.Stream?
     private var deviceStateToken: AnyListenerToken?
     private var compatibilityToken: AnyListenerToken?
     private var linkStateToken: AnyListenerToken?
@@ -233,9 +233,6 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
             _ = try await Wearables.shared.handleUrl(url)
             lastError = nil
             log("handleUrl OK registration=\(mapRegistration(Wearables.shared.registrationState).rawValue)")
-        } catch let error as RegistrationError {
-            lastError = "Meta callback failed: \(error.description)"
-            log("handleUrl RegistrationError \(error.description)")
         } catch {
             lastError = "Meta callback failed: \(error.localizedDescription)"
             log("handleUrl FAIL \(error.localizedDescription)")
