@@ -99,7 +99,13 @@ final class DashboardViewModel: ObservableObject {
                     gpu: response.tts?.gpu,
                     responseMode: response.responseMode,
                     mood: response.mood,
-                    llmMs: response.llmMs
+                    llmMs: response.llmMs,
+                    llmFirstTokenMs: response.llmFirstTokenMs,
+                    firstSentenceMs: response.firstSentenceMs,
+                    f5FirstChunkMs: response.f5FirstChunkMs,
+                    generation: response.generation,
+                    followUpSeconds: response.followUpSeconds,
+                    ackDelayMs: response.ackDelayMs
                 )
             } catch {
                 if self.isBenignCancellation(error) { return nil }

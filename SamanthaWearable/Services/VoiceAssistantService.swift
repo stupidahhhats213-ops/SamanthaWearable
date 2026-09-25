@@ -17,6 +17,12 @@ struct SpokenReply {
     var responseMode: String?
     var mood: String?
     var llmMs: Double?
+    var f5FirstChunkMs: Double?
+    var generation: String?
+    var followUpSeconds: Double?
+    var ackDelayMs: Double?
+    var llmFirstTokenMs: Double?
+    var firstSentenceMs: Double?
 }
 
 final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
@@ -26,6 +32,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         case listening = "LISTENING"
         case thinking = "THINKING"
         case speaking = "SPEAKING"
+        case followUp = "FOLLOW-UP LISTENING"
         case error = "ERROR"
     }
 
@@ -45,6 +52,12 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     @Published private(set) var ttsGPU: String = "—"
     @Published private(set) var firstAudioMs: Double?
     @Published private(set) var synthesisMs: Double?
+    @Published private(set) var llmFirstTokenMs: Double?
+    @Published private(set) var firstSentenceMs: Double?
+    @Published private(set) var f5FirstChunkMs: Double?
+    @Published private(set) var playbackStartMs: Double?
+    @Published private(set) var followUpOpen = false
+    @Published private(set) var followUpRemaining: Double = 0
     @Published private(set) var needsConfirmation = false
     @Published var heySamanthaEnabled = true
     @Published var proactiveEnabled = true
@@ -74,6 +87,22 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var playbackWatchdog: DispatchWorkItem?
     private var awaitingReportChoice = false
     private var fallbackText = ""
+    private var chunkQueue: [(generation: String, seq: Int, path: String)] = []
+    private var activeGeneration: String?
+    private var retiredGenerations: Set<String> = []
+    private var playedStream = false
+    private var playingChunk = false
+    private var streamFinished = false
+    private var f5AudioStarted = false
+    private var fillerUtterance = false
+    private var ackWork: DispatchWorkItem?
+    private var followUpWork: DispatchWorkItem?
+    private var followUpEnds: Date?
+    private var followUpSeconds: Double = 10
+    private var ackDelayMs: Double = 1200
+    private var speechEndedAt: Date?
+    private var bargeIn = false
+    private var listenerWarningSpoken = false
 
     var onCommand: ((String) async -> SpokenReply?)?
     var fetchAudio: ((String) async throws -> WearableAudio)?
@@ -192,6 +221,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                     self.receiveLoop()
                 case .failure(let error):
                     print("[ProactiveEvent] socket closed \(error.localizedDescription)")
+                    self.noteListenerDown()
                     self.scheduleReconnect()
                 }
             }
@@ -205,6 +235,20 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         let speakOut = obj["speak"] as? Bool ?? false
         let type = obj["type"] as? String ?? "event"
         print("[ProactiveEvent] type=\(type)")
+        if type == "speech_chunk" {
+            let generation = obj["generation"] as? String ?? ""
+            let seq = obj["seq"] as? Int ?? 0
+            let path = obj["audio_url"] as? String ?? ""
+            if !generation.isEmpty, !path.isEmpty {
+                enqueueChunk(generation: generation, seq: seq, path: path)
+            }
+            return
+        }
+        if type == "speech_done" {
+            streamFinished = true
+            pumpQueue()
+            return
+        }
         if !text.isEmpty {
             handleEvent(text: text, speakOut: speakOut)
         }
@@ -217,6 +261,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             await MainActor.run {
                 guard let self, self.heySamanthaEnabled, !self.eventBaseURL.isEmpty else { return }
                 print("[ProactiveEvent] reconnect")
+                self.listenerWarningSpoken = false
                 self.connectEvents(baseURL: self.eventBaseURL)
             }
         }
@@ -288,7 +333,9 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             scheduleListenRestart()
             return
         }
-        phase = commandMode ? .listening : .wakeListening
+        if !bargeIn {
+            phase = commandMode ? .listening : (phase == .followUp ? .followUp : .wakeListening)
+        }
         listenGeneration += 1
         let generation = listenGeneration
         print("[WakeWord] \(phase.rawValue)")
@@ -297,11 +344,15 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                 guard let self, generation == self.listenGeneration else { return }
                 if let result {
                     self.consume(transcript: result.bestTranscription.formattedString, isFinal: result.isFinal)
-                    if result.isFinal, self.phase == .wakeListening || self.phase == .listening {
+                    if result.isFinal, !self.bargeIn, self.phase == .wakeListening || self.phase == .listening || self.phase == .followUp {
                         self.scheduleListenRestart()
                     }
                 }
-                if let error, self.phase == .wakeListening || self.phase == .listening || self.phase == .error {
+                if let error, self.bargeIn {
+                    self.bargeIn = false
+                    return
+                }
+                if let error, self.phase == .wakeListening || self.phase == .listening || self.phase == .followUp || self.phase == .error {
                     let ns = error as NSError
                     let cancelled = ns.code == NSURLErrorCancelled
                         || ns.code == 216
@@ -320,6 +371,12 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     }
 
     private func consume(transcript text: String, isFinal: Bool) {
+        if bargeIn {
+            guard text.lowercased().contains("hey samantha") else { return }
+            interruptForCommand()
+            finishCommand(from: text)
+            return
+        }
         latestPartial = text
         let lower = text.lowercased()
         if !commandMode {
@@ -395,16 +452,30 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
 
     private func submit(text: String) async {
         let started = Date()
+        speechEndedAt = started
         phase = .thinking
+        if let activeGeneration {
+            retiredGenerations.insert(activeGeneration)
+        }
+        activeGeneration = nil
+        playedStream = false
+        playingChunk = false
+        streamFinished = false
+        f5AudioStarted = false
+        playbackStartMs = nil
+        chunkQueue.removeAll()
+        bargeIn = false
+        armLocalAck()
         guard let onCommand else {
             phase = .error
             lastError = "No command handler"
             return
         }
         guard let result = await onCommand(text) else {
+            cancelLocalAck()
             phase = .error
             lastError = "Samantha server did not answer"
-            resumeWake()
+            openFollowUp()
             return
         }
         apiLatencyMs = result.apiMs
@@ -415,9 +486,22 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         responseMode = result.responseMode ?? "—"
         mood = result.mood ?? "—"
         llmMs = result.llmMs
+        llmFirstTokenMs = result.llmFirstTokenMs
+        firstSentenceMs = result.firstSentenceMs
+        f5FirstChunkMs = result.f5FirstChunkMs
+        if let window = result.followUpSeconds { followUpSeconds = window }
+        if let delay = result.ackDelayMs { ackDelayMs = delay }
+        if let generation = result.generation { activeGeneration = generation }
+        streamFinished = true
         print("[WearableVoice] intent=\(result.intent) api_ms=\(Int(result.apiMs)) total_ms=\(Int(totalLatencyMs ?? 0))")
         if muted || !result.speak {
-            resumeWake()
+            cancelLocalAck()
+            openFollowUp()
+            return
+        }
+        if playedStream || playingChunk || !chunkQueue.isEmpty {
+            cancelLocalAck()
+            pumpQueue()
             return
         }
         if let path = result.audioPath {
@@ -426,6 +510,154 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             voiceEngine = "iOS Fallback"
             speak(result.reply)
         }
+    }
+
+    private func enqueueChunk(generation: String, seq: Int, path: String) {
+        if retiredGenerations.contains(generation) { return }
+        if let active = activeGeneration, active != generation { return }
+        activeGeneration = generation
+        f5AudioStarted = true
+        cancelLocalAck()
+        chunkQueue.append((generation, seq, path))
+        chunkQueue.sort { $0.seq < $1.seq }
+        pumpQueue()
+    }
+
+    private func pumpQueue() {
+        guard !playingChunk else { return }
+        guard let next = chunkQueue.first else {
+            if streamFinished, phase == .speaking || phase == .thinking {
+                openFollowUp()
+            }
+            return
+        }
+        guard next.generation == activeGeneration else {
+            chunkQueue.removeFirst()
+            pumpQueue()
+            return
+        }
+        chunkQueue.removeFirst()
+        playingChunk = true
+        playedStream = true
+        phase = .speaking
+        if playbackStartMs == nil, let speechEndedAt {
+            playbackStartMs = Date().timeIntervalSince(speechEndedAt) * 1000
+        }
+        Task {
+            do {
+                guard let fetchAudio else { return }
+                let audio = try await fetchAudio(next.path)
+                guard next.generation == activeGeneration else {
+                    playingChunk = false
+                    return
+                }
+                if firstAudioMs == nil {
+                    firstAudioMs = audio.downloadMs
+                }
+                synthesisMs = audio.synthesisMs
+                try playWav(audio.data)
+                voiceEngine = "F5-TTS"
+            } catch {
+                playingChunk = false
+                guard next.generation == activeGeneration else { return }
+                print("[TTS] chunk failed \(error.localizedDescription)")
+                pumpQueue()
+            }
+        }
+    }
+
+    private func armLocalAck() {
+        cancelLocalAck()
+        let item = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                guard let self, !self.f5AudioStarted, self.phase == .thinking, !self.fillerUtterance else { return }
+                self.speakFiller("One moment.")
+            }
+        }
+        ackWork = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + (ackDelayMs / 1000), execute: item)
+    }
+
+    private func cancelLocalAck() {
+        ackWork?.cancel()
+        ackWork = nil
+        if fillerUtterance {
+            fillerUtterance = false
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+    }
+
+    private func speakFiller(_ text: String) {
+        fillerUtterance = true
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = preferredVoice()
+        utterance.rate = 0.5
+        synthesizer.speak(utterance)
+    }
+
+    private func openFollowUp() {
+        cancelLocalAck()
+        followUpWork?.cancel()
+        playingChunk = false
+        bargeIn = false
+        commandMode = true
+        followUpOpen = true
+        followUpEnds = Date().addingTimeInterval(followUpSeconds)
+        followUpRemaining = followUpSeconds
+        phase = .followUp
+        beginRecognition()
+        let item = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                guard let self, self.phase == .followUp else { return }
+                self.followUpOpen = false
+                self.followUpRemaining = 0
+                self.commandMode = false
+                self.resumeWake()
+            }
+        }
+        followUpWork = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + followUpSeconds, execute: item)
+        tickFollowUp()
+    }
+
+    private func tickFollowUp() {
+        guard followUpOpen, let followUpEnds else { return }
+        followUpRemaining = max(0, followUpEnds.timeIntervalSinceNow)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self, self.followUpOpen else { return }
+            self.tickFollowUp()
+        }
+    }
+
+    private func noteListenerDown() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            guard let self, !self.listenerWarningSpoken, self.eventTask == nil else { return }
+            self.listenerWarningSpoken = true
+            self.reply = "The wearable listener is offline."
+            if !self.muted, self.phase != .speaking, self.phase != .thinking {
+                self.speak(self.reply)
+            }
+        }
+    }
+
+    private func interruptForCommand() {
+        speakGeneration += 1
+        if let activeGeneration {
+            retiredGenerations.insert(activeGeneration)
+        }
+        activeGeneration = nil
+        chunkQueue.removeAll()
+        playingChunk = false
+        playedStream = false
+        bargeIn = false
+        synthesizer.stopSpeaking(at: .immediate)
+        speakerPlayer?.stop()
+        speakerPlayer = nil
+        playbackWatchdog?.cancel()
+        phase = .listening
+        commandMode = true
+        followUpOpen = false
+        followUpWork?.cancel()
     }
 
     private func speakServer(_ text: String, path: String, gpu: Int?) {
@@ -470,6 +702,15 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         armPlaybackWatchdog(seconds: max(player.duration, 0.5) + 1.5)
         refreshRoute()
         print("[TTS] player route=\(audioRoute) \(routeDetail)")
+        if audioRoute == "Meta Glasses" {
+            beginBargeIn()
+        }
+    }
+
+    private func beginBargeIn() {
+        bargeIn = true
+        commandMode = false
+        beginRecognition()
     }
 
     private func speak(_ text: String) {
@@ -522,14 +763,19 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private func continueAfterSpeech() {
         playbackWatchdog?.cancel()
         guard phase == .speaking else { return }
+        if playedStream {
+            playingChunk = false
+            bargeIn = false
+            pumpQueue()
+            return
+        }
         if awaitingReportChoice {
             commandMode = true
             phase = .listening
             beginRecognition()
             return
         }
-        phase = .wakeListening
-        resumeWake()
+        openFollowUp()
     }
 
     private static func isYes(_ text: String) -> Bool {
@@ -647,6 +893,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
+            if self.fillerUtterance {
+                self.fillerUtterance = false
+                return
+            }
             print("[TTS] finished")
             self.continueAfterSpeech()
         }

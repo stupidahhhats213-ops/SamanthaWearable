@@ -271,6 +271,12 @@ struct WearableCommandResponse: Decodable {
     let responseMode: String?
     let mood: String?
     let llmMs: Double?
+    let llmFirstTokenMs: Double?
+    let firstSentenceMs: Double?
+    let f5FirstChunkMs: Double?
+    let generation: String?
+    let followUpSeconds: Double?
+    let ackDelayMs: Double?
     var latencyMs: Double
 
     struct DataBox: Decodable {
@@ -278,11 +284,25 @@ struct WearableCommandResponse: Decodable {
         let responseMode: String?
         let mood: String?
         let llmMs: Double?
+        let llmFirstTokenMs: Double?
+        let firstSentenceMs: Double?
+        let f5FirstChunkMs: Double?
+        let generation: String?
+        let followUpSeconds: Double?
+        let ackDelayMs: Double?
+        let streamed: Bool?
         enum CodingKeys: String, CodingKey {
             case needsConfirmation = "needs_confirmation"
             case responseMode = "response_mode"
             case mood
             case llmMs = "llm_ms"
+            case llmFirstTokenMs = "llm_first_token_ms"
+            case firstSentenceMs = "first_sentence_ms"
+            case f5FirstChunkMs = "f5_first_chunk_ms"
+            case generation
+            case followUpSeconds = "followup_window_seconds"
+            case ackDelayMs = "local_ack_delay_ms"
+            case streamed
         }
     }
 
@@ -303,6 +323,12 @@ struct WearableCommandResponse: Decodable {
         responseMode = box?.responseMode
         mood = box?.mood
         llmMs = box?.llmMs
+        llmFirstTokenMs = box?.llmFirstTokenMs
+        firstSentenceMs = box?.firstSentenceMs
+        f5FirstChunkMs = box?.f5FirstChunkMs
+        generation = box?.generation
+        followUpSeconds = box?.followUpSeconds
+        ackDelayMs = box?.ackDelayMs
         tts = try container.decodeIfPresent(WearableTTS.self, forKey: .tts)
         latencyMs = 0
     }
