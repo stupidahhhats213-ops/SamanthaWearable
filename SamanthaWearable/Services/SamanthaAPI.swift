@@ -125,6 +125,33 @@ actor SamanthaAPI {
         return decoded
     }
 
+    func fetchAudio(path: String) async throws -> WearableAudio {
+        var req = authorizedRequest(url: try makeURL(path: path), method: "GET")
+        req.timeoutInterval = 50
+        req.setValue("audio/wav", forHTTPHeaderField: "Accept")
+        let started = Date()
+        let (data, response) = try await session.data(for: req)
+        let ms = Date().timeIntervalSince(started) * 1000.0
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw SamanthaAPIError.httpStatus(code, "tts audio")
+        }
+        guard data.count > 44 else {
+            throw SamanthaAPIError.serverMessage("tts audio too small")
+        }
+        func header(_ name: String) -> String? {
+            http.value(forHTTPHeaderField: name)
+        }
+        return WearableAudio(
+            data: data,
+            downloadMs: ms,
+            synthesisMs: Double(header("X-Samantha-Synthesis-Ms") ?? ""),
+            audioSec: Double(header("X-Samantha-Audio-Sec") ?? ""),
+            rtf: Double(header("X-Samantha-RTF") ?? ""),
+            sampleRate: Int(header("X-Samantha-Sample-Rate") ?? "")
+        )
+    }
+
     func disconnect(deviceID: String) async throws {
         let body = try encoder.encode(DisconnectRequest(deviceId: deviceID))
         let (data, _) = try await post(path: "/api/wearable/disconnect", body: body)
@@ -210,6 +237,29 @@ struct WearableCommandRequest: Encodable {
     }
 }
 
+struct WearableTTS: Decodable {
+    let engine: String
+    let audioURL: String
+    let fallback: String
+    let gpu: Int?
+    let voice: String?
+
+    enum CodingKeys: String, CodingKey {
+        case engine
+        case audioURL = "audio_url"
+        case fallback, gpu, voice
+    }
+}
+
+struct WearableAudio {
+    let data: Data
+    let downloadMs: Double
+    let synthesisMs: Double?
+    let audioSec: Double?
+    let rtf: Double?
+    let sampleRate: Int?
+}
+
 struct WearableCommandResponse: Decodable {
     let ok: Bool
     let reply: String
@@ -217,6 +267,7 @@ struct WearableCommandResponse: Decodable {
     let actionTaken: String?
     let speak: Bool
     let needsConfirmation: Bool
+    let tts: WearableTTS?
     var latencyMs: Double
 
     struct DataBox: Decodable {
@@ -227,7 +278,7 @@ struct WearableCommandResponse: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case ok, reply, intent, speak, data
+        case ok, reply, intent, speak, data, tts
         case actionTaken = "action_taken"
     }
 
@@ -239,6 +290,7 @@ struct WearableCommandResponse: Decodable {
         actionTaken = try container.decodeIfPresent(String.self, forKey: .actionTaken)
         speak = try container.decodeIfPresent(Bool.self, forKey: .speak) ?? true
         needsConfirmation = (try container.decodeIfPresent(DataBox.self, forKey: .data))?.needsConfirmation ?? false
+        tts = try container.decodeIfPresent(WearableTTS.self, forKey: .tts)
         latencyMs = 0
     }
 }

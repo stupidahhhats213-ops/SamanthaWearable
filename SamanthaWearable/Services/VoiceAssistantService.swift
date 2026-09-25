@@ -6,7 +6,17 @@ import Speech
 import AVFoundation
 
 @MainActor
-final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+struct SpokenReply {
+    var reply: String
+    var intent: String
+    var apiMs: Double
+    var needsConfirmation: Bool
+    var speak: Bool = true
+    var audioPath: String?
+    var gpu: Int?
+}
+
+final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     enum Phase: String {
         case idle = "IDLE"
         case wakeListening = "WAKE LISTENING"
@@ -25,6 +35,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     @Published private(set) var wakeToTranscriptMs: Double?
     @Published private(set) var apiLatencyMs: Double?
     @Published private(set) var totalLatencyMs: Double?
+    @Published private(set) var voiceEngine: String = "—"
+    @Published private(set) var ttsGPU: String = "—"
+    @Published private(set) var firstAudioMs: Double?
+    @Published private(set) var synthesisMs: Double?
     @Published private(set) var needsConfirmation = false
     @Published var heySamanthaEnabled = true
     @Published var proactiveEnabled = true
@@ -32,6 +46,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     @Published private(set) var lastError: String?
 
     private let synthesizer = AVSpeechSynthesizer()
+    private var player: AVAudioPlayer?
     private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
@@ -46,8 +61,11 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var reconnectTask: Task<Void, Never>?
     private var greeted = false
     private var tapInstalled = false
+    private var speakGeneration = 0
+    private var fallbackText = ""
 
-    var onCommand: ((String) async -> (reply: String, intent: String, apiMs: Double, needsConfirmation: Bool)?)?
+    var onCommand: ((String) async -> SpokenReply?)?
+    var fetchAudio: ((String) async throws -> WearableAudio)?
     var onPhase: ((Phase) -> Void)?
 
     override init() {
@@ -106,7 +124,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     }
 
     func stopSpeaking() {
+        speakGeneration += 1
         synthesizer.stopSpeaking(at: .immediate)
+        player?.stop()
+        player = nil
         resumeWake()
     }
 
@@ -350,11 +371,56 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         intent = result.intent
         needsConfirmation = result.needsConfirmation
         print("[WearableVoice] intent=\(result.intent) api_ms=\(Int(result.apiMs)) total_ms=\(Int(totalLatencyMs ?? 0))")
-        if muted {
+        if muted || !result.speak {
             resumeWake()
             return
         }
-        speak(result.reply)
+        if let path = result.audioPath {
+            speakServer(result.reply, path: path, gpu: result.gpu)
+        } else {
+            voiceEngine = "iOS Fallback"
+            speak(result.reply)
+        }
+    }
+
+    private func speakServer(_ text: String, path: String, gpu: Int?) {
+        refreshRoute()
+        stopCaptureEngineOnly()
+        phase = .speaking
+        speakGeneration += 1
+        let token = speakGeneration
+        let started = Date()
+        fallbackText = text
+        ttsGPU = gpu.map { "P100 \($0)" } ?? "—"
+        print("[TTS] fetch \(path)")
+        Task {
+            do {
+                guard let fetchAudio else { throw URLError(.badURL) }
+                let audio = try await fetchAudio(path)
+                guard token == speakGeneration else { return }
+                firstAudioMs = Date().timeIntervalSince(started) * 1000
+                synthesisMs = audio.synthesisMs
+                try playWav(audio.data)
+                voiceEngine = "F5-TTS"
+                print("[TTS] f5 first_audio_ms=\(Int(firstAudioMs ?? 0)) synthesis_ms=\(Int(audio.synthesisMs ?? 0)) rtf=\(audio.rtf ?? -1)")
+            } catch {
+                guard token == speakGeneration else { return }
+                print("[TTS] fallback \(error.localizedDescription)")
+                voiceEngine = "iOS Fallback"
+                speak(text)
+            }
+        }
+    }
+
+    private func playWav(_ data: Data) throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP, .mixWithOthers])
+        try session.setActive(true)
+        player = try AVAudioPlayer(data: data)
+        player?.delegate = self
+        guard player?.play() == true else {
+            throw URLError(.cannotDecodeContentData)
+        }
     }
 
     private func speak(_ text: String) {
@@ -365,6 +431,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = preferredVoice()
         utterance.rate = 0.48
+        voiceEngine = "iOS Fallback"
         synthesizer.speak(utterance)
     }
 
@@ -439,6 +506,25 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         Task { @MainActor in
             print("[TTS] finished")
             self.resumeWake()
+        }
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            self.player = nil
+            if flag {
+                print("[TTS] playback finished")
+                self.resumeWake()
+            } else {
+                print("[TTS] playback failed")
+                let text = self.fallbackText
+                if text.isEmpty {
+                    self.voiceEngine = "iOS Fallback"
+                    self.resumeWake()
+                } else {
+                    self.speak(text)
+                }
+            }
         }
     }
 }

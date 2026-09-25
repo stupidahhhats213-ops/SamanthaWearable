@@ -89,12 +89,24 @@ final class DashboardViewModel: ObservableObject {
             do {
                 let response = try await self.api.sendCommand(deviceID: self.deviceID, sessionID: self.voiceSessionID, text: text)
                 print("[WearableVoice] intent=\(response.intent)")
-                return (response.reply, response.intent, response.latencyMs, response.needsConfirmation)
+                return SpokenReply(
+                    reply: response.reply,
+                    intent: response.intent,
+                    apiMs: response.latencyMs,
+                    needsConfirmation: response.needsConfirmation,
+                    speak: response.speak,
+                    audioPath: response.tts?.audioURL,
+                    gpu: response.tts?.gpu
+                )
             } catch {
                 self.lastError = error.localizedDescription
                 print("[WearableVoice] command failed \(error.localizedDescription)")
                 return nil
             }
+        }
+        voice.fetchAudio = { [weak self] path in
+            guard let self else { throw URLError(.cancelled) }
+            return try await self.api.fetchAudio(path: path)
         }
         glassesCancellable = metaGlasses.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
