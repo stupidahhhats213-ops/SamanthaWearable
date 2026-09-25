@@ -25,18 +25,19 @@
           "NSBluetoothPeripheralUsageDescription": "Needed to connect to Meta AI Glasses",
           "NSLocalNetworkUsageDescription": "Samantha Wearable connects to your local Samantha Control Center and discovers Meta glasses over Wi-Fi.",
           "NSCameraUsageDescription": "Camera access is used when simulating a Meta glasses feed on this iPhone.",
-          "NSMicrophoneUsageDescription": "Microphone access is used to detect and use the Meta glasses microphone when available."
+          "NSMicrophoneUsageDescription": "Microphone access is used to hear Hey Samantha and your command while the app is open.",
+          "NSSpeechRecognitionUsageDescription": "Speech recognition turns Hey Samantha commands into text on this iPhone. Audio is not sent to the server."
         }
       },
       "versions": [
         {
-          "version": "0.2.1",
-          "buildVersion": "5",
+          "version": "0.3.0",
+          "buildVersion": "6",
           "date": "2026-09-25",
           "localizedDescription": "Waits until Meta DAT marks the glasses session-eligible before starting the device session.",
-          "downloadURL": "https://github.com/stupidahhhats213-ops/SamanthaWearable/releases/download/samantha-0.2.1-build5/SamanthaWearable-0.2.1-build5.ipa",
-          "size": 5343529,
-          "sha256": "4dd8fd9711b32bf220ed54a512214ea0de6fdbc7b1d5cdeca8de8f003287d946",
+          "downloadURL": "https://github.com/stupidahhhats213-ops/SamanthaWearable/releases/download/samantha-0.3.0-build6/SamanthaWearable-0.3.0-build6.ipa",
+          "size": 5394839,
+          "sha256": "d030d23b75f2138beacb4dcb92d73ae323ef0efc099512260d8900ec128fbe63",
           "minOSVersion": "17.2"
         }
       ]
