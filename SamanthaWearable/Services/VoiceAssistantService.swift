@@ -102,7 +102,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var ackDelayMs: Double = 1200
     private var speechEndedAt: Date?
     private var bargeIn = false
-    private var listenerWarningSpoken = false
+    private var recognitionStarting = false
 
     var onCommand: ((String) async -> SpokenReply?)?
     var fetchAudio: ((String) async throws -> WearableAudio)?
@@ -275,37 +275,72 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     }
 
     private func beginRecognition() {
+        guard !recognitionStarting else { return }
+        recognitionStarting = true
         stopCaptureEngineOnly()
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             Task { @MainActor in
                 guard let self else { return }
                 guard status == .authorized else {
+                    self.recognitionStarting = false
                     self.phase = .error
                     self.lastError = "Speech recognition is not authorized"
                     print("[SpeechRecognition] auth \(status.rawValue)")
                     return
                 }
-                self.startEngine()
+                await self.prepareListeningSession()
             }
         }
     }
 
-    private func startEngine() {
-        refreshRoute()
-        let session = AVAudioSession.sharedInstance()
+    /// Bluetooth route changes block for several seconds. Keep that off the main thread.
+    private func prepareListeningSession() async {
         do {
-            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP])
-            if let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
-                try session.setPreferredInput(mic)
-            }
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try await Self.configureAudioSession(playback: false)
         } catch {
-            phase = .wakeListening
-            lastError = error.localizedDescription
-            print("[AudioRoute] session \(error.localizedDescription)")
-            scheduleListenRestart()
+            await MainActor.run {
+                self.recognitionStarting = false
+                self.phase = .wakeListening
+                self.lastError = error.localizedDescription
+                print("[AudioRoute] session \(error.localizedDescription)")
+                self.scheduleListenRestart()
+            }
             return
         }
+        await MainActor.run {
+            self.recognitionStarting = false
+            self.startEngine()
+        }
+    }
+
+    private static func configureAudioSession(playback: Bool) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP])
+            if playback {
+                let inputs = session.availableInputs ?? []
+                if let glasses = inputs.first(where: { Self.isGlassesPort($0.portName) }) {
+                    try session.setPreferredInput(glasses)
+                    try session.overrideOutputAudioPort(.none)
+                } else if session.currentRoute.outputs.contains(where: { Self.isGlassesPort($0.portName) }) {
+                    try session.overrideOutputAudioPort(.none)
+                } else {
+                    try session.setPreferredInput(nil)
+                    try session.overrideOutputAudioPort(.speaker)
+                }
+            } else if let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+                try session.setPreferredInput(mic)
+            }
+            try session.setActive(true, options: playback ? [] : [.notifyOthersOnDeactivation])
+        }.value
+    }
+
+    private static func isGlassesPort(_ name: String) -> Bool {
+        let lowered = name.lowercased()
+        return lowered.contains("meta") || lowered.contains("ray-ban") || lowered.contains("rayban")
+    }
+
+    private func startEngine() {
         refreshRoute()
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest, let recognizer, recognizer.isAvailable else {
@@ -562,7 +597,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                     firstAudioMs = audio.downloadMs
                 }
                 synthesisMs = audio.synthesisMs
-                try playWav(audio.data)
+                try await playWav(audio.data)
                 voiceEngine = "F5-TTS"
             } catch {
                 playingChunk = false
@@ -684,7 +719,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                 guard token == speakGeneration else { return }
                 firstAudioMs = Date().timeIntervalSince(started) * 1000
                 synthesisMs = audio.synthesisMs
-                try playWav(audio.data)
+                try await playWav(audio.data)
                 voiceEngine = "F5-TTS"
                 print("[TTS] f5 first_audio_ms=\(Int(firstAudioMs ?? 0)) synthesis_ms=\(Int(audio.synthesisMs ?? 0)) rtf=\(audio.rtf ?? -1)")
             } catch {
@@ -696,10 +731,11 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         }
     }
 
-    private func playWav(_ data: Data) throws {
+    private func playWav(_ data: Data) async throws {
         stopCaptureEngineOnly()
         audioEngine.reset()
-        try activatePlaybackRoute()
+        try await Self.configureAudioSession(playback: true)
+        refreshRoute()
         speakerPlayer = try AVAudioPlayer(data: data)
         speakerPlayer?.delegate = self
         speakerPlayer?.volume = 1
@@ -707,24 +743,27 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             throw URLError(.cannotDecodeContentData)
         }
         armPlaybackWatchdog(seconds: max(player.duration, 0.5) + 1.5)
-        refreshRoute()
         print("[TTS] player route=\(audioRoute) \(routeDetail)")
     }
 
     private func speak(_ text: String) {
         stopCaptureEngineOnly()
         audioEngine.reset()
-        try? activatePlaybackRoute()
         phase = .speaking
-        refreshRoute()
-        print("[TTS] route=\(audioRoute) \(routeDetail)")
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = preferredVoice()
-        utterance.rate = 0.48
-        voiceEngine = "iOS Fallback"
-        let seconds = Double(text.split(separator: " ").count) * 0.45 + 2
-        armPlaybackWatchdog(seconds: seconds)
-        synthesizer.speak(utterance)
+        let token = speakGeneration
+        Task { @MainActor in
+            try? await Self.configureAudioSession(playback: true)
+            guard token == self.speakGeneration, self.phase == .speaking else { return }
+            self.refreshRoute()
+            print("[TTS] route=\(self.audioRoute) \(self.routeDetail)")
+            let utterance = AVSpeechUtterance(string: text)
+            utterance.voice = self.preferredVoice()
+            utterance.rate = 0.48
+            self.voiceEngine = "iOS Fallback"
+            let seconds = Double(text.split(separator: " ").count) * 0.45 + 2
+            self.armPlaybackWatchdog(seconds: seconds)
+            self.synthesizer.speak(utterance)
+        }
     }
 
     private func armPlaybackWatchdog(seconds: Double) {
@@ -795,30 +834,6 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private static func isNo(_ text: String) -> Bool {
         let words = Set(text.split(separator: " ").map(String.init))
         return !words.isDisjoint(with: ["no", "nope", "nah", "cancel"]) || text.contains("not now")
-    }
-
-    private func activatePlaybackRoute() throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.allowBluetooth, .allowBluetoothA2DP])
-        if let glasses = (session.availableInputs ?? []).first(where: { isGlassesName($0.portName) }) {
-            try session.setPreferredInput(glasses)
-            try session.overrideOutputAudioPort(.none)
-            print("[AudioRoute] playback input \(glasses.portName)")
-        } else if session.currentRoute.outputs.contains(where: { isGlassesName($0.portName) }) {
-            try session.overrideOutputAudioPort(.none)
-            print("[AudioRoute] playback keeps glasses output")
-        } else {
-            try session.setPreferredInput(nil)
-            try session.overrideOutputAudioPort(.speaker)
-            print("[AudioRoute] no glasses, phone speaker")
-        }
-        try session.setActive(true)
-        refreshRoute()
-    }
-
-    private func isGlassesName(_ name: String) -> Bool {
-        let lowered = name.lowercased()
-        return lowered.contains("meta") || lowered.contains("ray-ban") || lowered.contains("rayban")
     }
 
     private func stopPlaybackNode() {

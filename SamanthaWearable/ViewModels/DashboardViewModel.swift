@@ -51,6 +51,8 @@ final class DashboardViewModel: ObservableObject {
     private var isForeground = true
     private var reconnectTask: Task<Void, Never>?
     private var glassesCancellable: AnyCancellable?
+    private var lastVoiceGlasses = false
+    private var voiceSynced = false
 
     var deviceID: String { DeviceIdentity.deviceID }
     var deviceName: String { DeviceIdentity.deviceName }
@@ -121,7 +123,12 @@ final class DashboardViewModel: ObservableObject {
         glassesCancellable = metaGlasses.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
             Task { @MainActor in
-                self?.voice.setForeground(self?.isForeground ?? false, glassesConnected: self?.metaGlasses.glassesConnected ?? false)
+                guard let self else { return }
+                let connected = self.metaGlasses.glassesConnected
+                guard connected != self.lastVoiceGlasses || !self.voiceSynced else { return }
+                self.lastVoiceGlasses = connected
+                self.voiceSynced = true
+                self.voice.setForeground(self.isForeground, glassesConnected: connected)
             }
         }
     }
