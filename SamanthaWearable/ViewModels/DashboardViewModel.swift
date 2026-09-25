@@ -67,9 +67,10 @@ final class DashboardViewModel: ObservableObject {
         self.serverURL = url
         self.authEnabled = auth
         self.heartbeatInterval = interval
-        self.apiToken = KeychainStore.get(account: AppConfig.Keys.apiTokenKeychain) ?? ""
+        let token = KeychainStore.get(account: AppConfig.Keys.apiTokenKeychain) ?? ""
+        self.apiToken = token
 
-        let client = SamanthaAPI(baseURL: url, authEnabled: auth, apiToken: self.apiToken)
+        let client = SamanthaAPI(baseURL: url, authEnabled: auth, apiToken: token)
         self.api = client
         self.heartbeat = HeartbeatService(
             api: client,
