@@ -95,7 +95,8 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var streamFinished = false
     private var f5AudioStarted = false
     private var fillerUtterance = false
-    private var ackWork: DispatchWorkItem?
+    private var fillerIndex = 0
+    private var progressWork: DispatchWorkItem?
     private var followUpWork: DispatchWorkItem?
     private var followUpEnds: Date?
     private var followUpSeconds: Double = 10
@@ -507,7 +508,9 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         playbackStartMs = nil
         chunkQueue.removeAll()
         bargeIn = false
-        armLocalAck()
+        if !muted {
+            armLocalAck()
+        }
         guard let onCommand else {
             phase = .error
             lastError = "No command handler"
@@ -610,19 +613,34 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
 
     private func armLocalAck() {
         cancelLocalAck()
+        let openers = [
+            "Oh, I got you.",
+            "Got it.",
+            "On it.",
+            "Okay.",
+        ]
+        let later = [
+            "Working on that now.",
+            "Please wait. I'm still checking.",
+            "Give me a second.",
+            "Still on it.",
+        ]
+        speakFiller(openers[fillerIndex % openers.count])
+        let follow = later[fillerIndex % later.count]
+        fillerIndex += 1
         let item = DispatchWorkItem { [weak self] in
             Task { @MainActor in
-                guard let self, !self.f5AudioStarted, self.phase == .thinking, !self.fillerUtterance else { return }
-                self.speakFiller("One moment.")
+                guard let self, !self.f5AudioStarted, self.phase == .thinking else { return }
+                self.speakFiller(follow)
             }
         }
-        ackWork = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + (ackDelayMs / 1000), execute: item)
+        progressWork = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5, execute: item)
     }
 
     private func cancelLocalAck() {
-        ackWork?.cancel()
-        ackWork = nil
+        progressWork?.cancel()
+        progressWork = nil
         if fillerUtterance {
             fillerUtterance = false
             synthesizer.stopSpeaking(at: .immediate)
