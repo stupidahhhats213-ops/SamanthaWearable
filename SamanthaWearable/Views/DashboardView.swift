@@ -32,9 +32,7 @@ struct DashboardView: View {
                     SectionCard(
                         title: "HEARTBEAT",
                         trailing: viewModel.heartbeat.isActive ? "● ACTIVE" : "● IDLE",
-                        trailingColor: viewModel.heartbeat.isActive
-                            ? Color(red: 0.95, green: 0.54, blue: 0.0)
-                            : Color(white: 0.45)
+                        trailingColor: viewModel.heartbeat.isActive ? HUD.amber : HUD.muted
                     ) {
                         StatusRow(title: "Last Send", value: viewModel.lastHeartbeatAgeText)
                         StatusRow(title: "Interval", value: String(format: "%.0f sec", viewModel.heartbeatInterval))
@@ -60,7 +58,7 @@ struct DashboardView: View {
                         ?? viewModel.metaGlasses.lastError {
                         Text(err)
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Color(red: 0.89, green: 0.36, blue: 0.20))
+                            .foregroundStyle(HUD.red)
                             .padding(.horizontal, 4)
                     }
 
@@ -79,8 +77,7 @@ struct DashboardView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.95, green: 0.54, blue: 0.0))
+                    .buttonStyle(HUDButtonStyle(prominent: true))
 
                     NavigationLink {
                         SettingsView(viewModel: viewModel)
@@ -90,11 +87,11 @@ struct DashboardView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HUDButtonStyle())
                 }
                 .padding(16)
             }
-            .background(Color(red: 0.035, green: 0.031, blue: 0.024).ignoresSafeArea())
+            .background(HUD.bg.ignoresSafeArea())
             .navigationBarHidden(true)
             .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { now in
                 tick = now
@@ -131,7 +128,7 @@ struct DashboardView: View {
             if meta.requiresFirmwareUpdate {
                 Text("Firmware update required")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(red: 0.89, green: 0.36, blue: 0.20))
+                    .foregroundStyle(HUD.red)
             }
 
             VStack(spacing: 8) {
@@ -143,8 +140,7 @@ struct DashboardView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(red: 0.95, green: 0.54, blue: 0.0))
+                .buttonStyle(HUDButtonStyle(prominent: true))
                 .disabled(viewModel.glassesActionBusy || meta.connectionState == .connected || meta.connectionState == .connecting)
 
                 Button {
@@ -155,7 +151,7 @@ struct DashboardView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(HUDButtonStyle())
                 .disabled(viewModel.glassesActionBusy || !meta.glassesConnected)
 
                 Button {
@@ -166,7 +162,7 @@ struct DashboardView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(HUDButtonStyle())
                 .disabled(viewModel.glassesActionBusy || !meta.glassesConnected || meta.isCapturingPhoto)
 
                 if meta.requiresFirmwareUpdate {
@@ -178,7 +174,7 @@ struct DashboardView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HUDButtonStyle())
                 }
             }
             .padding(.top, 6)
@@ -229,7 +225,7 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(HUDButtonStyle(prominent: true))
             Button {
                 viewModel.voice.stopSpeaking()
             } label: {
@@ -238,7 +234,7 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(HUDButtonStyle())
             if voice.needsConfirmation {
                 Button { viewModel.voice.confirmPending() } label: {
                     Text("CONFIRM")
@@ -246,14 +242,14 @@ struct DashboardView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(HUDButtonStyle(prominent: true))
                 Button { viewModel.voice.cancelPending() } label: {
                     Text("CANCEL")
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(HUDButtonStyle())
             }
         }
     }
@@ -276,7 +272,7 @@ struct DashboardView: View {
                 }
                 Spacer()
             }
-            .background(Color(red: 0.035, green: 0.031, blue: 0.024).ignoresSafeArea())
+            .background(HUD.bg.ignoresSafeArea())
             .navigationTitle("Camera Capture")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -290,13 +286,22 @@ struct DashboardView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("SAMANTHA")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(Color(red: 0.96, green: 0.92, blue: 0.85))
-            Text("WEARABLE BRIDGE  ·  v\(AppConfig.appVersion)")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(red: 0.95, green: 0.54, blue: 0.0))
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("SAMANTHA")
+                    .font(.system(size: 28, weight: .bold, design: .serif))
+                    .foregroundStyle(HUD.ivory)
+                Text("/ WEARABLE")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HUD.amber)
+            }
+            Text("SYS/CTRL  •  LIVE TELEMETRY  •  v\(AppConfig.appVersion)")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(HUD.muted)
+            Rectangle()
+                .fill(HUD.amber)
+                .frame(height: 3)
+                .padding(.top, 6)
         }
         .padding(.bottom, 4)
         .opacity(tick.timeIntervalSince1970 > 0 ? 1 : 1)

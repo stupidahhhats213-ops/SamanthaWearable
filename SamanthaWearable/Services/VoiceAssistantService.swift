@@ -131,7 +131,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             phase = .idle
             return
         }
-        guard phase != .speaking, phase != .thinking else { return }
+        guard phase != .speaking, phase != .thinking, phase != .listening, phase != .wakeListening, phase != .followUp else { return }
         commandMode = false
         awaitingReportChoice = false
         beginRecognition()
@@ -140,16 +140,21 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     func startTalking() {
         speakGeneration += 1
         playbackWatchdog?.cancel()
+        followUpWork?.cancel()
+        followUpOpen = false
+        followUpRemaining = 0
+        awaitingReportChoice = false
+        bargeIn = false
         synthesizer.stopSpeaking(at: .immediate)
         speakerPlayer?.stop()
         speakerPlayer = nil
         stopPlaybackNode()
-        awaitingReportChoice = true
         commandMode = true
         wakeStartedAt = Date()
         transcript = ""
         latestPartial = ""
-        speak("Do you want a small report?")
+        phase = .listening
+        beginRecognition()
     }
 
     func confirmPending() {
@@ -173,7 +178,9 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     func speakConnectedGreeting() {
         guard !greeted else { return }
         greeted = true
-        speak("Connected. Samantha is online.")
+        awaitingReportChoice = true
+        commandMode = true
+        speak("Connected. Do you want a small report?")
     }
 
     func handleEvent(text: String, speakOut: Bool) {
@@ -702,15 +709,6 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         armPlaybackWatchdog(seconds: max(player.duration, 0.5) + 1.5)
         refreshRoute()
         print("[TTS] player route=\(audioRoute) \(routeDetail)")
-        if audioRoute == "Meta Glasses" {
-            beginBargeIn()
-        }
-    }
-
-    private func beginBargeIn() {
-        bargeIn = true
-        commandMode = false
-        beginRecognition()
     }
 
     private func speak(_ text: String) {
@@ -773,6 +771,17 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             commandMode = true
             phase = .listening
             beginRecognition()
+            followUpWork?.cancel()
+            let item = DispatchWorkItem { [weak self] in
+                Task { @MainActor in
+                    guard let self, self.awaitingReportChoice, self.phase == .listening else { return }
+                    self.awaitingReportChoice = false
+                    self.commandMode = false
+                    self.resumeWake()
+                }
+            }
+            followUpWork = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + followUpSeconds, execute: item)
             return
         }
         openFollowUp()

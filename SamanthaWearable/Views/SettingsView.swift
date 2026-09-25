@@ -60,7 +60,10 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
             }
         }
-        .navigationTitle("Settings")
+        .scrollContentBackground(.hidden)
+        .background(HUD.bg.ignoresSafeArea())
+        .tint(HUD.amber)
+        .navigationTitle("SETTINGS")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
