@@ -118,7 +118,7 @@ actor SamanthaAPI {
             text: text
         )
         var req = authorizedRequest(url: try makeURL(path: "/api/wearable/command"), method: "POST", body: try encoder.encode(payload))
-        req.timeoutInterval = 20
+        req.timeoutInterval = 45
         let (data, ms) = try await perform(req)
         var decoded = try decoder.decode(WearableCommandResponse.self, from: data)
         decoded.latencyMs = ms
@@ -268,12 +268,21 @@ struct WearableCommandResponse: Decodable {
     let speak: Bool
     let needsConfirmation: Bool
     let tts: WearableTTS?
+    let responseMode: String?
+    let mood: String?
+    let llmMs: Double?
     var latencyMs: Double
 
     struct DataBox: Decodable {
         let needsConfirmation: Bool?
+        let responseMode: String?
+        let mood: String?
+        let llmMs: Double?
         enum CodingKeys: String, CodingKey {
             case needsConfirmation = "needs_confirmation"
+            case responseMode = "response_mode"
+            case mood
+            case llmMs = "llm_ms"
         }
     }
 
@@ -289,7 +298,11 @@ struct WearableCommandResponse: Decodable {
         intent = try container.decodeIfPresent(String.self, forKey: .intent) ?? ""
         actionTaken = try container.decodeIfPresent(String.self, forKey: .actionTaken)
         speak = try container.decodeIfPresent(Bool.self, forKey: .speak) ?? true
-        needsConfirmation = (try container.decodeIfPresent(DataBox.self, forKey: .data))?.needsConfirmation ?? false
+        let box = try container.decodeIfPresent(DataBox.self, forKey: .data)
+        needsConfirmation = box?.needsConfirmation ?? false
+        responseMode = box?.responseMode
+        mood = box?.mood
+        llmMs = box?.llmMs
         tts = try container.decodeIfPresent(WearableTTS.self, forKey: .tts)
         latencyMs = 0
     }

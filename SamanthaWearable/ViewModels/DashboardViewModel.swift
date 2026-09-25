@@ -96,7 +96,10 @@ final class DashboardViewModel: ObservableObject {
                     needsConfirmation: response.needsConfirmation,
                     speak: response.speak,
                     audioPath: response.tts?.audioURL,
-                    gpu: response.tts?.gpu
+                    gpu: response.tts?.gpu,
+                    responseMode: response.responseMode,
+                    mood: response.mood,
+                    llmMs: response.llmMs
                 )
             } catch {
                 if self.isBenignCancellation(error) { return nil }

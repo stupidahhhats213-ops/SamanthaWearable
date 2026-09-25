@@ -14,6 +14,9 @@ struct SpokenReply {
     var speak: Bool = true
     var audioPath: String?
     var gpu: Int?
+    var responseMode: String?
+    var mood: String?
+    var llmMs: Double?
 }
 
 final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
@@ -36,6 +39,9 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     @Published private(set) var apiLatencyMs: Double?
     @Published private(set) var totalLatencyMs: Double?
     @Published private(set) var voiceEngine: String = "—"
+    @Published private(set) var responseMode: String = "—"
+    @Published private(set) var mood: String = "—"
+    @Published private(set) var llmMs: Double?
     @Published private(set) var ttsGPU: String = "—"
     @Published private(set) var firstAudioMs: Double?
     @Published private(set) var synthesisMs: Double?
@@ -384,6 +390,9 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         reply = result.reply
         intent = result.intent
         needsConfirmation = result.needsConfirmation
+        responseMode = result.responseMode ?? "—"
+        mood = result.mood ?? "—"
+        llmMs = result.llmMs
         print("[WearableVoice] intent=\(result.intent) api_ms=\(Int(result.apiMs)) total_ms=\(Int(totalLatencyMs ?? 0))")
         if muted || !result.speak {
             resumeWake()
