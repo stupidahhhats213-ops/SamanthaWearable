@@ -45,6 +45,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var eventSession: URLSession?
     private var reconnectTask: Task<Void, Never>?
     private var greeted = false
+    private var tapInstalled = false
 
     var onCommand: ((String) async -> (reply: String, intent: String, apiMs: Double, needsConfirmation: Bool)?)?
     var onPhase: ((Phase) -> Void)?
@@ -231,10 +232,17 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         }
         let input = audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
-        input.removeTap(onBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            phase = .error
+            lastError = "Microphone is not ready"
+            print("[WakeWord] microphone format not ready")
+            return
+        }
+        removeInputTap()
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.recognitionRequest?.append(buffer)
         }
+        tapInstalled = true
         audioEngine.prepare()
         do {
             try audioEngine.start()
@@ -251,8 +259,11 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                 if let result {
                     self.consume(transcript: result.bestTranscription.formattedString, isFinal: result.isFinal)
                 }
-                if error != nil, self.phase == .wakeListening || self.phase == .listening {
-                    self.beginRecognition()
+                if let error, self.phase == .wakeListening || self.phase == .listening {
+                    self.lastError = error.localizedDescription
+                    print("[SpeechRecognition] \(error.localizedDescription)")
+                    self.stopCaptureEngineOnly()
+                    self.phase = .error
                 }
             }
         }
@@ -383,7 +394,13 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         if audioEngine.isRunning {
             audioEngine.stop()
         }
+        removeInputTap()
+    }
+
+    private func removeInputTap() {
+        guard tapInstalled else { return }
         audioEngine.inputNode.removeTap(onBus: 0)
+        tapInstalled = false
     }
 
     private func resumeWake() {
