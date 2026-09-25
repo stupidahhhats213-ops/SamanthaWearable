@@ -74,7 +74,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is used when simulating a Meta glasses feed on this iPhone.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access is used to detect and use the Meta glasses microphone when available.</string>
+	<string>Microphone access is used to hear Hey Samantha and your command while the app is open.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition turns Hey Samantha commands into text on this iPhone. Audio is not sent to the server.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

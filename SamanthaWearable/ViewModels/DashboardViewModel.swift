@@ -44,6 +44,8 @@ final class DashboardViewModel: ObservableObject {
 
     let telemetry = DeviceTelemetry()
     let metaGlasses = MetaGlassesService()
+    let voice = VoiceAssistantService()
+    private let voiceSessionID = UserDefaults.standard.string(forKey: "samantha.voiceSession") ?? UUID().uuidString
     private(set) var api: SamanthaAPI
     private(set) var heartbeat: HeartbeatService
     private var isForeground = true
@@ -79,8 +81,26 @@ final class DashboardViewModel: ObservableObject {
             intervalSeconds: interval
         )
 
+        if UserDefaults.standard.string(forKey: "samantha.voiceSession") == nil {
+            UserDefaults.standard.set(voiceSessionID, forKey: "samantha.voiceSession")
+        }
+        voice.onCommand = { [weak self] text in
+            guard let self else { return nil }
+            do {
+                let response = try await self.api.sendCommand(deviceID: self.deviceID, sessionID: self.voiceSessionID, text: text)
+                print("[WearableVoice] intent=\(response.intent)")
+                return (response.reply, response.intent, response.latencyMs, response.needsConfirmation)
+            } catch {
+                self.lastError = error.localizedDescription
+                print("[WearableVoice] command failed \(error.localizedDescription)")
+                return nil
+            }
+        }
         glassesCancellable = metaGlasses.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
+            Task { @MainActor in
+                self?.voice.setForeground(self?.isForeground ?? false, glassesConnected: self?.metaGlasses.glassesConnected ?? false)
+            }
         }
     }
 
@@ -95,6 +115,8 @@ final class DashboardViewModel: ObservableObject {
         isForeground = false
         metaGlasses.suspendOnBackground()
         heartbeat.stop()
+        voice.setForeground(false, glassesConnected: false)
+        voice.disconnectEvents()
         #if DEBUG
         print("[Lifecycle] resign active — heartbeat suspended, Meta camera stopped")
         #endif
@@ -114,6 +136,17 @@ final class DashboardViewModel: ObservableObject {
         }
         // Cancels prior reconnect Task; HeartbeatService.start() stops any prior loop first.
         startSession()
+        syncVoice()
+    }
+
+    func syncVoice() {
+        voice.setForeground(isForeground, glassesConnected: metaGlasses.glassesConnected)
+        if isForeground {
+            voice.connectEvents(baseURL: serverURL)
+            if metaGlasses.glassesConnected && connectionState == .connected {
+                voice.speakConnectedGreeting()
+            }
+        }
     }
 
     func applySettingsToAPI() {

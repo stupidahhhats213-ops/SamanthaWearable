@@ -25,6 +25,7 @@
 		A10000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* Assets.xcassets */; };
 		A10000000000000000000011 /* MetaGlassesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MetaGlassesService.swift */; };
 		A10000000000000000000013 /* GlassesTelemetryProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* GlassesTelemetryProviding.swift */; };
+		A10000000000000000000019 /* VoiceAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* VoiceAssistantService.swift */; };
 		A10000000000000000000014 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000015 /* MWDATCore */; };
 		A10000000000000000000016 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000017 /* MWDATCamera */; };
 /* End PBXBuildFile section */
@@ -50,6 +51,7 @@
 		B10000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000012 /* MetaGlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesService.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* GlassesTelemetryProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesTelemetryProviding.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* VoiceAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +127,7 @@
 				B1000000000000000000000B /* HeartbeatService.swift */,
 				B10000000000000000000013 /* GlassesTelemetryProviding.swift */,
 				B10000000000000000000012 /* MetaGlassesService.swift */,
+				B10000000000000000000019 /* VoiceAssistantService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -236,6 +239,7 @@
 				A1000000000000000000000B /* HeartbeatService.swift in Sources */,
 				A10000000000000000000013 /* GlassesTelemetryProviding.swift in Sources */,
 				A10000000000000000000011 /* MetaGlassesService.swift in Sources */,
+				A10000000000000000000019 /* VoiceAssistantService.swift in Sources */,
 				A1000000000000000000000C /* DashboardViewModel.swift in Sources */,
 				A1000000000000000000000D /* DashboardView.swift in Sources */,
 				A1000000000000000000000E /* SettingsView.swift in Sources */,
@@ -294,7 +298,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -322,7 +326,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

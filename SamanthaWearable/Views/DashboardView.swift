@@ -53,6 +53,7 @@ struct DashboardView: View {
                     }
 
                     metaGlassesSection
+                    voiceSection
 
                     if let err = viewModel.lastError
                         ?? viewModel.heartbeat.lastError
@@ -181,6 +182,66 @@ struct DashboardView: View {
                 }
             }
             .padding(.top, 6)
+        }
+    }
+
+    private var voiceSection: some View {
+        let voice = viewModel.voice
+        return SectionCard(title: "VOICE ASSISTANT", trailing: voice.phase.rawValue) {
+            StatusRow(title: "Wake phrase", value: "Hey Samantha")
+            StatusRow(title: "Wake detection", value: voice.heySamanthaEnabled ? "ENABLED" : "DISABLED")
+            StatusRow(title: "Transcript", value: voice.transcript.isEmpty ? "—" : voice.transcript)
+            StatusRow(title: "Reply", value: voice.reply.isEmpty ? "—" : voice.reply)
+            StatusRow(title: "Audio Route", value: "\(voice.audioRoute) · \(voice.routeDetail)")
+            StatusRow(title: "Wake → text", value: voice.wakeToTranscriptMs.map { String(format: "%.0f ms", $0) } ?? "—")
+            StatusRow(title: "API", value: voice.apiLatencyMs.map { String(format: "%.0f ms", $0) } ?? "—")
+            StatusRow(title: "Total", value: voice.totalLatencyMs.map { String(format: "%.0f ms", $0) } ?? "—")
+            Toggle("Hey Samantha", isOn: Binding(
+                get: { voice.heySamanthaEnabled },
+                set: { voice.heySamanthaEnabled = $0; viewModel.syncVoice() }
+            ))
+            Toggle("Proactive updates", isOn: Binding(
+                get: { voice.proactiveEnabled },
+                set: { voice.proactiveEnabled = $0 }
+            ))
+            Toggle("Mute Samantha", isOn: Binding(
+                get: { voice.muted },
+                set: { voice.muted = $0 }
+            ))
+            Button {
+                viewModel.voice.toggleTalkFallback()
+            } label: {
+                Text("TALK")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.bordered)
+            Button {
+                viewModel.voice.stopSpeaking()
+            } label: {
+                Text("STOP SPEAKING")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.bordered)
+            if voice.needsConfirmation {
+                Button { viewModel.voice.confirmPending() } label: {
+                    Text("CONFIRM")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.borderedProminent)
+                Button { viewModel.voice.cancelPending() } label: {
+                    Text("CANCEL")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 

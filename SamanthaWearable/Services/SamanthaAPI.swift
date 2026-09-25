@@ -109,6 +109,22 @@ actor SamanthaAPI {
         }
     }
 
+    func sendCommand(deviceID: String, sessionID: String, text: String) async throws -> WearableCommandResponse {
+        let payload = WearableCommandRequest(
+            deviceId: deviceID,
+            sessionId: sessionID,
+            source: "meta_glasses",
+            timestamp: ISO8601DateFormatter().string(from: Date()),
+            text: text
+        )
+        var req = authorizedRequest(url: try makeURL(path: "/api/wearable/command"), method: "POST", body: try encoder.encode(payload))
+        req.timeoutInterval = 20
+        let (data, ms) = try await perform(req)
+        var decoded = try decoder.decode(WearableCommandResponse.self, from: data)
+        decoded.latencyMs = ms
+        return decoded
+    }
+
     func disconnect(deviceID: String) async throws {
         let body = try encoder.encode(DisconnectRequest(deviceId: deviceID))
         let (data, _) = try await post(path: "/api/wearable/disconnect", body: body)
@@ -177,5 +193,52 @@ actor SamanthaAPI {
         } catch {
             throw SamanthaAPIError.transport(error)
         }
+    }
+}
+
+struct WearableCommandRequest: Encodable {
+    let deviceId: String
+    let sessionId: String
+    let source: String
+    let timestamp: String
+    let text: String
+
+    enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case sessionId = "session_id"
+        case source, timestamp, text
+    }
+}
+
+struct WearableCommandResponse: Decodable {
+    let ok: Bool
+    let reply: String
+    let intent: String
+    let actionTaken: String?
+    let speak: Bool
+    let needsConfirmation: Bool
+    var latencyMs: Double
+
+    struct DataBox: Decodable {
+        let needsConfirmation: Bool?
+        enum CodingKeys: String, CodingKey {
+            case needsConfirmation = "needs_confirmation"
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case ok, reply, intent, speak, data
+        case actionTaken = "action_taken"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ok = try container.decode(Bool.self, forKey: .ok)
+        reply = try container.decodeIfPresent(String.self, forKey: .reply) ?? ""
+        intent = try container.decodeIfPresent(String.self, forKey: .intent) ?? ""
+        actionTaken = try container.decodeIfPresent(String.self, forKey: .actionTaken)
+        speak = try container.decodeIfPresent(Bool.self, forKey: .speak) ?? true
+        needsConfirmation = (try container.decodeIfPresent(DataBox.self, forKey: .data))?.needsConfirmation ?? false
+        latencyMs = 0
     }
 }
