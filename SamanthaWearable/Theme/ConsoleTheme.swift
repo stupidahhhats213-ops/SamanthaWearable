@@ -364,9 +364,9 @@ final class AppearanceStore: ObservableObject {
     }
 
     func toggleSection(_ id: String) {
-        var set = Set(collapsedCSV.split(separator: ",").map(String.init))
-        if set.contains(id) { set.remove(id) } else { set.insert(id) }
-        set(\.collapsedCSV, set.sorted().joined(separator: ","), key: "samantha.collapsed")
+        var flags = Set(collapsedCSV.split(separator: ",").map(String.init))
+        if flags.contains(id) { flags.remove(id) } else { flags.insert(id) }
+        set(\.collapsedCSV, flags.sorted().joined(separator: ","), key: "samantha.collapsed")
     }
 
     func resetBubble() {
