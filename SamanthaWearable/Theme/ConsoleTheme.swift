@@ -166,6 +166,8 @@ final class AppearanceStore: ObservableObject {
     @Published var bubbleEnabled: Bool
     @Published var bubbleNX: Double
     @Published var bubbleNY: Double
+    @Published var bubbleEdgeRaw: String
+    @Published var bubbleNormalizedY: Double
     @Published var bubbleSize: Double
     @Published var bubbleOpacity: Double
     @Published var bubbleGlow: Double
@@ -202,6 +204,14 @@ final class AppearanceStore: ObservableObject {
         bubbleEnabled = store.object(forKey: "samantha.bubble.enabled") as? Bool ?? true
         bubbleNX = store.object(forKey: "samantha.bubble.nx") as? Double ?? 0.9
         bubbleNY = store.object(forKey: "samantha.bubble.ny") as? Double ?? 0.55
+        let restored = BubblePosition.restored(
+            edgeRaw: store.string(forKey: "samantha.bubble.edge"),
+            normalizedY: store.object(forKey: "samantha.bubble.nyNorm") as? Double,
+            legacyX: store.object(forKey: "samantha.bubble.nx") as? Double,
+            legacyY: store.object(forKey: "samantha.bubble.ny") as? Double
+        )
+        bubbleEdgeRaw = restored.edge.rawValue
+        bubbleNormalizedY = restored.normalizedY
         bubbleSize = store.object(forKey: "samantha.bubble.size") as? Double ?? 52
         bubbleOpacity = store.object(forKey: "samantha.bubble.opacity") as? Double ?? 0.94
         bubbleGlow = store.object(forKey: "samantha.bubble.glow") as? Double ?? 0.35
@@ -370,14 +380,14 @@ final class AppearanceStore: ObservableObject {
     }
 
     func resetBubble() {
-        set(\.bubbleNX, 0.9, key: "samantha.bubble.nx")
-        set(\.bubbleNY, 0.55, key: "samantha.bubble.ny")
+        set(\.bubbleEdgeRaw, BubblePosition.default.edge.rawValue, key: "samantha.bubble.edge")
+        set(\.bubbleNormalizedY, BubblePosition.default.normalizedY, key: "samantha.bubble.nyNorm")
     }
 
-    func persistBubble(nx: Double, ny: Double) {
-        set(\.bubbleNX, nx, key: "samantha.bubble.nx")
-        set(\.bubbleNY, ny, key: "samantha.bubble.ny")
-    }
+    func setBubbleEdge(_ value: String) { set(\.bubbleEdgeRaw, value, key: "samantha.bubble.edge") }
+    func setBubbleNormalizedY(_ value: Double) { set(\.bubbleNormalizedY, value, key: "samantha.bubble.nyNorm") }
+
+    var bubbleEdge: BubbleEdge { BubbleEdge(rawValue: bubbleEdgeRaw) ?? .right }
 
     func setFontScale(_ value: Double) { set(\.fontScale, value, key: "samantha.fontScale") }
     func setBorderWidth(_ value: Double) { set(\.borderWidth, value, key: "samantha.borderWidth") }

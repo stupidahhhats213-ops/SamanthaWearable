@@ -54,6 +54,7 @@ struct SettingsView: View {
             .padding(.bottom, 88)
         }
         .background(appearance.background)
+        .accessibilityIdentifier("settingsScreen")
         .navigationTitle("SETTINGS")
         .navigationBarTitleDisplayMode(.inline)
     }

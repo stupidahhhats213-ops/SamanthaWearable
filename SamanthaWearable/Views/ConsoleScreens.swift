@@ -29,6 +29,7 @@ struct HomeScreen: View {
             .padding(appearance.pad)
             .padding(.bottom, 72)
         }
+        .accessibilityIdentifier("homeScroll")
         .background(appearance.background)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .bottom) {
@@ -48,6 +49,9 @@ struct HomeScreen: View {
                 CommandField(text: $viewModel.commandDraft, target: viewModel.commandTarget) {
                     let raw = viewModel.commandDraft
                     viewModel.commandDraft = ""
+                    if raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "home" {
+                        return
+                    }
                     if let route = viewModel.route(forShortcut: raw) {
                         open(route)
                     } else {
@@ -665,7 +669,13 @@ struct AppearanceScreen: View {
                     slider("GLOW", value: appearance.bubbleGlow, range: 0...1) { appearance.setBubbleGlow($0) }
                     slider("SNAP", value: appearance.snapStrength, range: 0.4...1) { appearance.setSnapStrength($0) }
                     slider("BLUR", value: appearance.blurStrength, range: 0...1) { appearance.setBlurStrength($0) }
+                    pickerRow("ANIMATION") {
+                        ForEach(ConsoleMotion.allCases) { item in
+                            FilterChip(title: item.rawValue, selected: appearance.motion == item) { appearance.motion = item }
+                        }
+                    }
                     ConsoleButton(title: "RESET POSITION") { appearance.resetBubble() }
+                        .accessibilityIdentifier("bubbleResetPosition")
                 }
             }
             .padding(appearance.pad)

@@ -1,29 +1,47 @@
 // Views/DashboardView.swift
 import SwiftUI
 
-struct ColumnSizeKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
-    }
-}
-
 struct DashboardView: View {
     @ObservedObject var viewModel: DashboardViewModel
     @EnvironmentObject private var appearance: AppearanceStore
     @State private var path = NavigationPath()
-    @State private var menuOpen = false
-    @State private var nested: String?
     @State private var restored = false
+    @StateObject private var bubble = SamanthaBubbleModel()
 
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 0) {
-                if geo.size.width > geo.size.height && geo.size.width > 700 {
-                    rail
-                        .frame(width: 148)
+            ZStack {
+                HStack(spacing: 0) {
+                    if geo.size.width > geo.size.height && geo.size.width > 700 {
+                        rail
+                            .frame(width: 148)
+                    }
+                    consoleColumn
                 }
-                consoleColumn
+                .blur(radius: bubble.showsBackdrop ? CGFloat(appearance.blurStrength) * 8 : 0)
+                .allowsHitTesting(!bubble.showsBackdrop)
+                if bubble.showsBackdrop {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .opacity(appearance.blurStrength)
+                        .background(Color.black.opacity(0.28 * appearance.blurStrength))
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if appearance.bubbleEnabled {
+                    BubbleOverlay(
+                        model: bubble,
+                        container: geo.size,
+                        safeTop: geo.safeAreaInsets.top,
+                        safeBottom: geo.safeAreaInsets.bottom,
+                        safeLeading: geo.safeAreaInsets.leading,
+                        safeTrailing: geo.safeAreaInsets.trailing,
+                        bottomObstruction: path.isEmpty ? 78 : 12,
+                        onAction: handleBubble
+                    )
+                }
             }
         }
         .background(appearance.background.ignoresSafeArea())
@@ -49,42 +67,12 @@ struct DashboardView: View {
         }
     }
 
-    @State private var columnSize = CGSize.zero
-
     private var consoleColumn: some View {
-        ZStack {
-            NavigationStack(path: $path) {
-                HomeScreen(viewModel: viewModel, open: open)
-                    .navigationDestination(for: ConsoleRoute.self) { route in
-                        destination(route)
-                    }
-            }
-            if menuOpen {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(appearance.blurStrength)
-                    .background(Color.black.opacity(0.28 * appearance.blurStrength))
-                    .ignoresSafeArea()
-                    .onTapGesture { closeMenu() }
-                    .accessibilityLabel("Dismiss Samantha menu")
-            }
-        }
-        .background(
-            GeometryReader { geo in
-                Color.clear.preference(key: ColumnSizeKey.self, value: geo.size)
-            }
-        )
-        .onPreferenceChange(ColumnSizeKey.self) { columnSize = $0 }
-        .overlay(alignment: .topLeading) {
-            if appearance.bubbleEnabled, columnSize.width > 1 {
-                SamanthaBubbleOverlay(
-                    size: columnSize,
-                    bottomObstruction: path.isEmpty ? 74 : 12,
-                    menuOpen: $menuOpen,
-                    nested: $nested,
-                    onAction: handleBubble
-                )
-            }
+        NavigationStack(path: $path) {
+            HomeScreen(viewModel: viewModel, open: open)
+                .navigationDestination(for: ConsoleRoute.self) { route in
+                    destination(route)
+                }
         }
     }
 
@@ -158,8 +146,7 @@ struct DashboardView: View {
     }
 
     private func closeMenu() {
-        menuOpen = false
-        nested = nil
+        bubble.dismiss()
     }
 
     private func handleBubble(_ action: String) {
@@ -191,15 +178,13 @@ struct DashboardView: View {
         case "voice.stop":
             viewModel.voice.stopSpeaking()
             closeMenu()
-        case "voice.route":
-            open(.voice)
-        case "voice.page", "voice.follow":
+        case "voice.route", "voice.page", "voice.follow", "voice.tts":
             open(.voice)
         case "system.gpus":
             open(.gpus)
         case "system.models":
             open(.models)
-        case "system.services", "system.network":
+        case "system.services", "system.network", "system.storage":
             open(.system)
         case "system.health":
             viewModel.testConnection()

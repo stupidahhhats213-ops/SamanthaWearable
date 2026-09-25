@@ -29,6 +29,13 @@
 		A10000000000000000000020 /* ConsoleTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* ConsoleTheme.swift */; };
 		A10000000000000000000021 /* ConsoleKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* ConsoleKit.swift */; };
 		A10000000000000000000022 /* ConsoleScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* ConsoleScreens.swift */; };
+		A10000000000000000000023 /* BubbleGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* BubbleGeometry.swift */; };
+		A10000000000000000000024 /* SamanthaBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* SamanthaBubble.swift */; };
+		A10000000000000000000025 /* BubbleMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* BubbleMenu.swift */; };
+		A10000000000000000000026 /* BubbleOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* BubbleOverlay.swift */; };
+		A10000000000000000000030 /* BubbleGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* BubbleGeometry.swift */; };
+		A10000000000000000000031 /* BubbleGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000030 /* BubbleGeometryTests.swift */; };
+		A10000000000000000000034 /* BubbleLogicHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* BubbleLogicHostApp.swift */; };
 		A10000000000000000000014 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000015 /* MWDATCore */; };
 		A10000000000000000000016 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000017 /* MWDATCamera */; };
 /* End PBXBuildFile section */
@@ -58,6 +65,16 @@
 		B10000000000000000000020 /* ConsoleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleTheme.swift; sourceTree = "<group>"; };
 		B10000000000000000000021 /* ConsoleKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleKit.swift; sourceTree = "<group>"; };
 		B10000000000000000000022 /* ConsoleScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleScreens.swift; sourceTree = "<group>"; };
+		B10000000000000000000023 /* BubbleGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleGeometry.swift; sourceTree = "<group>"; };
+		B10000000000000000000024 /* SamanthaBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SamanthaBubble.swift; sourceTree = "<group>"; };
+		B10000000000000000000025 /* BubbleMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleMenu.swift; sourceTree = "<group>"; };
+		B10000000000000000000026 /* BubbleOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleOverlay.swift; sourceTree = "<group>"; };
+		B10000000000000000000030 /* BubbleGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleGeometryTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000031 /* BubbleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleUITests.swift; sourceTree = "<group>"; };
+		B10000000000000000000034 /* BubbleLogicHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleLogicHostApp.swift; sourceTree = "<group>"; };
+		C10000000000000000000002 /* BubbleLogicTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BubbleLogicTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000004 /* BubbleLogicHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BubbleLogicHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000003 /* BubbleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BubbleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +87,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F10000000000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000022 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000042 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000043 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -77,6 +122,8 @@
 			isa = PBXGroup;
 			children = (
 				E10000000000000000000002 /* SamanthaWearable */,
+				E1000000000000000000000B /* BubbleLogicTests */,
+				E1000000000000000000000C /* BubbleUITests */,
 				E10000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -91,6 +138,7 @@
 				E10000000000000000000007 /* ViewModels */,
 				E10000000000000000000008 /* Views */,
 				E10000000000000000000009 /* Theme */,
+				E1000000000000000000000A /* Bubble */,
 				B10000000000000000000010 /* Assets.xcassets */,
 				B10000000000000000000011 /* Info.plist */,
 			);
@@ -101,6 +149,9 @@
 			isa = PBXGroup;
 			children = (
 				C10000000000000000000001 /* SamanthaWearable.app */,
+				C10000000000000000000004 /* BubbleLogicHost.app */,
+				C10000000000000000000002 /* BubbleLogicTests.xctest */,
+				C10000000000000000000003 /* BubbleUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -167,6 +218,34 @@
 			path = Theme;
 			sourceTree = "<group>";
 		};
+		E1000000000000000000000A /* Bubble */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000023 /* BubbleGeometry.swift */,
+				B10000000000000000000024 /* SamanthaBubble.swift */,
+				B10000000000000000000025 /* BubbleMenu.swift */,
+				B10000000000000000000026 /* BubbleOverlay.swift */,
+			);
+			path = Bubble;
+			sourceTree = "<group>";
+		};
+		E1000000000000000000000B /* BubbleLogicTests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000030 /* BubbleGeometryTests.swift */,
+				B10000000000000000000034 /* BubbleLogicHostApp.swift */,
+			);
+			path = BubbleLogicTests;
+			sourceTree = "<group>";
+		};
+		E1000000000000000000000C /* BubbleUITests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000031 /* BubbleUITests.swift */,
+			);
+			path = BubbleUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -191,6 +270,59 @@
 			productReference = C10000000000000000000001 /* SamanthaWearable.app */;
 			productType = "com.apple.product-type.application";
 		};
+		F10000000000000000000010 /* BubbleLogicTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000016 /* Build configuration list for PBXNativeTarget "BubbleLogicTests" */;
+			buildPhases = (
+				F10000000000000000000011 /* Sources */,
+				F10000000000000000000012 /* Frameworks */,
+				F10000000000000000000013 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F10000000000000000000032 /* PBXTargetDependency */,
+			);
+			name = BubbleLogicTests;
+			productName = BubbleLogicTests;
+			productReference = C10000000000000000000002 /* BubbleLogicTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F10000000000000000000020 /* BubbleUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000026 /* Build configuration list for PBXNativeTarget "BubbleUITests" */;
+			buildPhases = (
+				F10000000000000000000021 /* Sources */,
+				F10000000000000000000022 /* Frameworks */,
+				F10000000000000000000023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F10000000000000000000030 /* PBXTargetDependency */,
+			);
+			name = BubbleUITests;
+			productName = BubbleUITests;
+			productReference = C10000000000000000000003 /* BubbleUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		F10000000000000000000040 /* BubbleLogicHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000046 /* Build configuration list for PBXNativeTarget "BubbleLogicHost" */;
+			buildPhases = (
+				F10000000000000000000041 /* Sources */,
+				F10000000000000000000042 /* Frameworks */,
+				F10000000000000000000043 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BubbleLogicHost;
+			productName = BubbleLogicHost;
+			productReference = C10000000000000000000004 /* BubbleLogicHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -203,6 +335,14 @@
 				TargetAttributes = {
 					F10000000000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					F10000000000000000000010 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = F10000000000000000000001;
+					};
+					F10000000000000000000020 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = F10000000000000000000001;
 					};
 				};
 			};
@@ -223,6 +363,9 @@
 			projectRoot = "";
 			targets = (
 				F10000000000000000000001 /* SamanthaWearable */,
+				F10000000000000000000010 /* BubbleLogicTests */,
+				F10000000000000000000040 /* BubbleLogicHost */,
+				F10000000000000000000020 /* BubbleUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -233,6 +376,20 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000010 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000013 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -264,10 +421,67 @@
 				A10000000000000000000020 /* ConsoleTheme.swift in Sources */,
 				A10000000000000000000021 /* ConsoleKit.swift in Sources */,
 				A10000000000000000000022 /* ConsoleScreens.swift in Sources */,
+				A10000000000000000000023 /* BubbleGeometry.swift in Sources */,
+				A10000000000000000000024 /* SamanthaBubble.swift in Sources */,
+				A10000000000000000000025 /* BubbleMenu.swift in Sources */,
+				A10000000000000000000026 /* BubbleOverlay.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000031 /* BubbleGeometryTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000021 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000032 /* BubbleUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F10000000000000000000041 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000030 /* BubbleGeometry.swift in Sources */,
+				A10000000000000000000034 /* BubbleLogicHostApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		F10000000000000000000031 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F10000000000000000000005 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F10000000000000000000001;
+			remoteInfo = SamanthaWearable;
+		};
+		F10000000000000000000033 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F10000000000000000000005 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F10000000000000000000040;
+			remoteInfo = BubbleLogicHost;
+		};
+/* End PBXContainerItemProxy section */
+		F10000000000000000000030 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F10000000000000000000001 /* SamanthaWearable */;
+			targetProxy = F10000000000000000000031 /* PBXContainerItemProxy */;
+		};
+		F10000000000000000000032 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F10000000000000000000040 /* BubbleLogicHost */;
+			targetProxy = F10000000000000000000033 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		F10000000000000000000007 /* Debug */ = {
@@ -357,6 +571,125 @@
 			};
 			name = Release;
 		};
+
+		F10000000000000000000014 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable.logic-tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BubbleLogicHost.app/BubbleLogicHost";
+			};
+			name = Debug;
+		};
+		F10000000000000000000015 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable.logic-tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BubbleLogicHost.app/BubbleLogicHost";
+			};
+			name = Release;
+		};
+		F10000000000000000000024 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable.ui-tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = SamanthaWearable;
+			};
+			name = Debug;
+		};
+		F10000000000000000000025 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable.ui-tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = SamanthaWearable;
+			};
+			name = Release;
+		};
+		F10000000000000000000044 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable.logic-host;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F10000000000000000000045 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable.logic-host;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -374,6 +707,33 @@
 			buildConfigurations = (
 				F10000000000000000000009 /* Debug */,
 				F1000000000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000016 /* Build configuration list for PBXNativeTarget "BubbleLogicTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000014 /* Debug */,
+				F10000000000000000000015 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000026 /* Build configuration list for PBXNativeTarget "BubbleUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000024 /* Debug */,
+				F10000000000000000000025 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000046 /* Build configuration list for PBXNativeTarget "BubbleLogicHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000044 /* Debug */,
+				F10000000000000000000045 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
