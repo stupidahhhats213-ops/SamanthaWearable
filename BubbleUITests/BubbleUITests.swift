@@ -64,7 +64,7 @@ final class BubbleUITests: XCTestCase {
         let app = launch()
         let start = frame(bubble(app))
         let left = app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.45))
-        bubble(app).press(forDuration: 0.6, thenDragTo: left)
+        bubble(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.6, thenDragTo: left)
         let dragged = frame(bubble(app))
         XCTAssertLessThan(dragged.midX, app.frame.midX)
         XCTAssertGreaterThan(abs(dragged.midX - start.midX), 8)
@@ -90,7 +90,7 @@ final class BubbleUITests: XCTestCase {
     func testResetReturnsBubbleToRightSide() {
         let app = launch()
         let left = app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.4))
-        bubble(app).press(forDuration: 0.6, thenDragTo: left)
+        bubble(app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.6, thenDragTo: left)
         XCTAssertLessThan(frame(bubble(app)).midX, app.frame.midX)
         bubble(app).tap()
         app.buttons["bubbleSettings"].tap()
