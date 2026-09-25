@@ -69,6 +69,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     private var greeted = false
     private var tapInstalled = false
     private var speakGeneration = 0
+    private var listenGeneration = 0
+    private var restartWork: DispatchWorkItem?
+    private var playbackWatchdog: DispatchWorkItem?
+    private var awaitingReportChoice = false
     private var fallbackText = ""
 
     var onCommand: ((String) async -> SpokenReply?)?
@@ -98,27 +102,25 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             phase = .idle
             return
         }
-        guard phase != .speaking, phase != .thinking, phase != .listening else { return }
+        guard phase != .speaking, phase != .thinking else { return }
         commandMode = false
+        awaitingReportChoice = false
         beginRecognition()
     }
 
-    func toggleTalkFallback() {
-        if phase == .listening || phase == .wakeListening {
-            let text = latestPartial
-            if commandMode || text.lowercased().contains("hey samantha") {
-                finishCommand(from: text)
-            } else {
-                commandMode = true
-                phase = .listening
-                wakeStartedAt = Date()
-            }
-        } else if phase != .speaking && phase != .thinking {
-            commandMode = true
-            beginRecognition()
-            phase = .listening
-            wakeStartedAt = Date()
-        }
+    func startTalking() {
+        speakGeneration += 1
+        playbackWatchdog?.cancel()
+        synthesizer.stopSpeaking(at: .immediate)
+        speakerPlayer?.stop()
+        speakerPlayer = nil
+        stopPlaybackNode()
+        awaitingReportChoice = true
+        commandMode = true
+        wakeStartedAt = Date()
+        transcript = ""
+        latestPartial = ""
+        speak("Do you want a small report?")
     }
 
     func confirmPending() {
@@ -246,9 +248,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             }
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            phase = .error
+            phase = .wakeListening
             lastError = error.localizedDescription
             print("[AudioRoute] session \(error.localizedDescription)")
+            scheduleListenRestart()
             return
         }
         refreshRoute()
@@ -265,9 +268,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         let input = audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
-            phase = .error
+            phase = .wakeListening
             lastError = "Microphone is not ready"
             print("[WakeWord] microphone format not ready")
+            scheduleListenRestart()
             return
         }
         removeInputTap()
@@ -279,19 +283,25 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         do {
             try audioEngine.start()
         } catch {
-            phase = .error
+            phase = .wakeListening
             lastError = error.localizedDescription
+            scheduleListenRestart()
             return
         }
         phase = commandMode ? .listening : .wakeListening
+        listenGeneration += 1
+        let generation = listenGeneration
         print("[WakeWord] \(phase.rawValue)")
         recognitionTask = recognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, generation == self.listenGeneration else { return }
                 if let result {
                     self.consume(transcript: result.bestTranscription.formattedString, isFinal: result.isFinal)
+                    if result.isFinal, self.phase == .wakeListening || self.phase == .listening {
+                        self.scheduleListenRestart()
+                    }
                 }
-                if let error, self.phase == .wakeListening || self.phase == .listening {
+                if let error, self.phase == .wakeListening || self.phase == .listening || self.phase == .error {
                     let ns = error as NSError
                     let cancelled = ns.code == NSURLErrorCancelled
                         || ns.code == 216
@@ -299,12 +309,11 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
                         || error.localizedDescription.lowercased().contains("cancel")
                     if cancelled {
                         print("[SpeechRecognition] ignored \(error.localizedDescription)")
-                        return
+                    } else {
+                        self.lastError = error.localizedDescription
+                        print("[SpeechRecognition] \(error.localizedDescription)")
                     }
-                    self.lastError = error.localizedDescription
-                    print("[SpeechRecognition] \(error.localizedDescription)")
-                    self.stopCaptureEngineOnly()
-                    self.phase = .error
+                    self.scheduleListenRestart()
                 }
             }
         }
@@ -356,9 +365,22 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             spoken = String(spoken[range.upperBound...])
         }
         spoken = spoken.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: ",.:")))
+        if awaitingReportChoice {
+            let choice = spoken.lowercased()
+            if choice.isEmpty { return }
+            awaitingReportChoice = false
+            if Self.isYes(choice) {
+                spoken = "small report"
+            } else if Self.isNo(choice) {
+                commandMode = false
+                speak("Okay.")
+                return
+            }
+        }
         guard !spoken.isEmpty else {
             commandMode = false
             phase = .wakeListening
+            scheduleListenRestart()
             return
         }
         if let start = wakeStartedAt {
@@ -442,9 +464,10 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         speakerPlayer = try AVAudioPlayer(data: data)
         speakerPlayer?.delegate = self
         speakerPlayer?.volume = 1
-        guard speakerPlayer?.play() == true else {
+        guard let player = speakerPlayer, player.play() else {
             throw URLError(.cannotDecodeContentData)
         }
+        armPlaybackWatchdog(seconds: max(player.duration, 0.5) + 1.5)
         refreshRoute()
         print("[TTS] player route=\(audioRoute) \(routeDetail)")
     }
@@ -460,7 +483,63 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         utterance.voice = preferredVoice()
         utterance.rate = 0.48
         voiceEngine = "iOS Fallback"
+        let seconds = Double(text.split(separator: " ").count) * 0.45 + 2
+        armPlaybackWatchdog(seconds: seconds)
         synthesizer.speak(utterance)
+    }
+
+    private func armPlaybackWatchdog(seconds: Double) {
+        playbackWatchdog?.cancel()
+        let token = speakGeneration
+        let item = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                guard let self, token == self.speakGeneration, self.phase == .speaking else { return }
+                print("[TTS] watchdog resume")
+                self.synthesizer.stopSpeaking(at: .immediate)
+                self.speakerPlayer?.stop()
+                self.speakerPlayer = nil
+                self.continueAfterSpeech()
+            }
+        }
+        playbackWatchdog = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
+    private func scheduleListenRestart() {
+        guard phase != .speaking, phase != .thinking else { return }
+        restartWork?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                guard let self, self.phase != .speaking, self.phase != .thinking else { return }
+                print("[WakeWord] restart")
+                self.beginRecognition()
+            }
+        }
+        restartWork = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: item)
+    }
+
+    private func continueAfterSpeech() {
+        playbackWatchdog?.cancel()
+        guard phase == .speaking else { return }
+        if awaitingReportChoice {
+            commandMode = true
+            phase = .listening
+            beginRecognition()
+            return
+        }
+        phase = .wakeListening
+        resumeWake()
+    }
+
+    private static func isYes(_ text: String) -> Bool {
+        let words = Set(text.split(separator: " ").map(String.init))
+        return !words.isDisjoint(with: ["yes", "yeah", "yep", "sure", "please", "ok", "okay", "report"])
+    }
+
+    private static func isNo(_ text: String) -> Bool {
+        let words = Set(text.split(separator: " ").map(String.init))
+        return !words.isDisjoint(with: ["no", "nope", "nah", "cancel"]) || text.contains("not now")
     }
 
     private func activatePlaybackRoute() throws {
@@ -569,7 +648,7 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
             print("[TTS] finished")
-            self.resumeWake()
+            self.continueAfterSpeech()
         }
     }
 
@@ -578,12 +657,13 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
             self.speakerPlayer = nil
             if flag {
                 print("[TTS] playback finished")
-                self.resumeWake()
+                self.continueAfterSpeech()
             } else {
                 let text = self.fallbackText
                 if text.isEmpty {
-                    self.resumeWake()
+                    self.continueAfterSpeech()
                 } else {
+                    self.fallbackText = ""
                     self.speak(text)
                 }
             }

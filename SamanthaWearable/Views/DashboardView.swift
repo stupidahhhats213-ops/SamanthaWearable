@@ -216,9 +216,9 @@ struct DashboardView: View {
                 set: { voice.muted = $0 }
             ))
             Button {
-                viewModel.voice.toggleTalkFallback()
+                viewModel.voice.startTalking()
             } label: {
-                Text("TALK")
+                Text("START TALKING")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
