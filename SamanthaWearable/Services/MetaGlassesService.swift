@@ -65,6 +65,8 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
 
     private var deviceSession: DeviceSession?
     private var deviceSelector: AutoDeviceSelector?
+    /// Last glasses id that devicesStream reported as linked and compatible.
+    private var linkedDeviceId: DeviceIdentifier?
     private var camera: MWDATCamera.Camera?
     private var stream: MWDATCamera.Stream?
     private var deviceStateToken: AnyListenerToken?
@@ -155,10 +157,12 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
 
         if let firstId = deviceIds.first,
            let device = wearables.deviceForIdentifier(firstId) {
+            log("device discovered id=\(firstId) name=\(device.nameOrId())")
             applyDeviceSnapshot(device, id: firstId)
         } else if connectionState != .connecting && connectionState != .connected {
             connectedDeviceName = nil
             connectedDeviceId = nil
+            linkedDeviceId = nil
             linkStateText = "—"
             compatibilityText = "—"
             glassesBatteryPercent = nil
@@ -179,14 +183,15 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
         if let level = device.batteryLevel {
             glassesBatteryPercent = Double(level)
         }
-        monitorCompatibility(for: device)
-        monitorLinkState(for: device)
+        noteEligibility(device, id: id)
+        monitorCompatibility(for: device, id: id)
+        monitorLinkState(for: device, id: id)
         log(
             "device name=\(device.nameOrId()) id=\(connectedDeviceId ?? "?") link=\(linkStateText) compat=\(compatibilityText) battery=\(device.batteryLevel.map(String.init) ?? "nil")"
         )
     }
 
-    private func monitorCompatibility(for device: Device) {
+    private func monitorCompatibility(for device: Device, id: DeviceIdentifier) {
         compatibilityToken = nil
         requiresFirmwareUpdate = (device.compatibility() == .deviceUpdateRequired)
         if requiresFirmwareUpdate {
@@ -201,11 +206,12 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
                 if value == .deviceUpdateRequired {
                     self.lastError = "Glasses firmware update required"
                 }
+                self.noteEligibility(device, id: id)
             }
         }
     }
 
-    private func monitorLinkState(for device: Device) {
+    private func monitorLinkState(for device: Device, id: DeviceIdentifier) {
         linkStateToken = nil
         linkStateText = String(describing: device.linkState).uppercased()
         linkStateToken = device.addLinkStateListener { [weak self] value in
@@ -213,7 +219,25 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
                 guard let self else { return }
                 self.linkStateText = String(describing: value).uppercased()
                 self.log("linkState=\(self.linkStateText)")
+                self.noteEligibility(device, id: id)
             }
+        }
+    }
+
+    /// DAT 1.0.0 session eligibility: linked and not blocked on a glasses firmware update.
+    /// `createSession` still waits for `AutoDeviceSelector.activeDevice`, which can lag this flag.
+    private func isSessionEligible(_ device: Device) -> Bool {
+        device.linkState == .connected && device.compatibility() != .deviceUpdateRequired
+    }
+
+    private func noteEligibility(_ device: Device, id: DeviceIdentifier) {
+        let eligible = isSessionEligible(device)
+        log("eligibility=\(eligible) link=\(linkStateText) compat=\(compatibilityText) id=\(id)")
+        if eligible {
+            linkedDeviceId = id
+            log("selected device id=\(id)")
+        } else if linkedDeviceId == id {
+            linkedDeviceId = nil
         }
     }
 
@@ -325,25 +349,26 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
 
         connectionState = .connecting
         lastError = nil
-        log("createSession(AutoDeviceSelector)")
+
+        let wearables = Wearables.shared
+        let selector = AutoDeviceSelector(wearables: wearables)
+        deviceSelector = selector
+        observeActiveDevice(selector, wearables: wearables)
+
+        // devicesStream can already show Link CONNECTED + compatible while
+        // AutoDeviceSelector.activeDevice is still nil. createSession throws
+        // noEligibleDevice until that selector publishes the same device.
+        guard let deviceId = await waitForEligibleDevice(selector: selector, wearables: wearables) else {
+            connectionState = .error
+            lastError = "No eligible Meta glasses found"
+            log("session not started — selector had no active device link=\(linkStateText) compat=\(compatibilityText) linked=\(linkedDeviceId.map { String(describing: $0) } ?? "nil")")
+            teardownSession()
+            return
+        }
+
+        log("createSession id=\(deviceId)")
 
         do {
-            let wearables = Wearables.shared
-            let selector = AutoDeviceSelector(wearables: wearables)
-            deviceSelector = selector
-
-            activeDeviceTask?.cancel()
-            activeDeviceTask = Task { [weak self] in
-                for await deviceId in selector.activeDeviceStream() {
-                    guard let self else { return }
-                    if let deviceId, let device = wearables.deviceForIdentifier(deviceId) {
-                        self.applyDeviceSnapshot(device, id: deviceId)
-                    } else {
-                        self.log("activeDeviceStream => nil")
-                    }
-                }
-            }
-
             let session = try wearables.createSession(deviceSelector: selector)
             deviceSession = session
 
@@ -365,8 +390,9 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
 
             do {
                 try session.start()
-                log("session.start() OK")
+                log("session start success id=\(deviceId)")
             } catch let error as DeviceSessionError {
+                log("session start failure \(error.localizedDescription)")
                 handleSessionError(error)
                 teardownSession()
                 connectionState = connectionState == .unsupported ? .unsupported : .error
@@ -394,7 +420,10 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
             await refreshCapabilities()
         } catch let error as DeviceSessionError {
             connectionState = .error
-            lastError = "Connect failed: \(error.localizedDescription)"
+            handleSessionError(error)
+            if lastError == nil {
+                lastError = "Connect failed: \(error.localizedDescription)"
+            }
             log("createSession DeviceSessionError \(error.localizedDescription)")
             teardownSession()
         } catch {
@@ -403,6 +432,48 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
             log("createSession FAIL \(error.localizedDescription)")
             teardownSession()
         }
+    }
+
+    private func observeActiveDevice(_ selector: AutoDeviceSelector, wearables: WearablesInterface) {
+        activeDeviceTask?.cancel()
+        activeDeviceTask = Task { [weak self] in
+            for await deviceId in selector.activeDeviceStream() {
+                guard let self else { return }
+                if let deviceId, let device = wearables.deviceForIdentifier(deviceId) {
+                    self.applyDeviceSnapshot(device, id: deviceId)
+                } else {
+                    self.log("activeDeviceStream => nil")
+                }
+            }
+        }
+    }
+
+    /// Session start requires AutoDeviceSelector.activeDevice, not only a linked row.
+    private func waitForEligibleDevice(
+        selector: AutoDeviceSelector,
+        wearables: WearablesInterface
+    ) async -> DeviceIdentifier? {
+        log("waiting for session eligibility link=\(linkStateText) compat=\(compatibilityText)")
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            guard let ready = selector.activeDevice else {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                continue
+            }
+            if let device = wearables.deviceForIdentifier(ready) {
+                applyDeviceSnapshot(device, id: ready)
+                guard isSessionEligible(device) else {
+                    log("activeDevice \(ready) not eligible yet link=\(linkStateText) compat=\(compatibilityText)")
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    continue
+                }
+            }
+            linkedDeviceId = ready
+            log("session eligibility true id=\(ready)")
+            return ready
+        }
+        log("session eligibility timed out active=\(selector.activeDevice.map { String(describing: $0) } ?? "nil")")
+        return nil
     }
 
     private func handleSessionError(_ error: DeviceSessionError) {
@@ -445,6 +516,7 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
             break
         case .stopped:
             connectionState = .disconnected
+            clearCachedDeviceState()
             glassesBatteryPercent = nil
             cameraLabel = .unavailable
             microphoneLabel = .unavailable
@@ -464,6 +536,7 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
     private func markConnected(session: DeviceSession) async {
         connectionState = .connected
         sessionStateText = "STARTED"
+        lastError = nil
         if let device = session.device {
             // Prefer live session device; id may already be set from streams.
             connectedDeviceName = device.nameOrId()
@@ -482,8 +555,10 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
                     }
                 }
             }
-            monitorCompatibility(for: device)
-            monitorLinkState(for: device)
+            if let id = linkedDeviceId {
+                monitorCompatibility(for: device, id: id)
+                monitorLinkState(for: device, id: id)
+            }
             log("CONNECTED device=\(device.nameOrId()) battery=\(device.batteryLevel.map(String.init) ?? "nil")")
         } else {
             connectedDeviceName = connectedDeviceName ?? "Meta Glasses"
@@ -497,6 +572,7 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
         stopCameraPipeline()
         teardownSession()
         connectionState = .disconnected
+        clearCachedDeviceState()
         glassesBatteryPercent = nil
         cameraLabel = .unavailable
         microphoneLabel = .unavailable
@@ -526,6 +602,16 @@ final class MetaGlassesService: ObservableObject, GlassesTelemetryProviding {
         deviceSession = nil
         deviceSelector = nil
         log("session torn down")
+    }
+
+    private func clearCachedDeviceState() {
+        linkedDeviceId = nil
+        connectedDeviceName = nil
+        connectedDeviceId = nil
+        linkStateText = "—"
+        compatibilityText = "—"
+        requiresFirmwareUpdate = false
+        log("device cache cleared")
     }
 
     // MARK: - Capabilities / permissions

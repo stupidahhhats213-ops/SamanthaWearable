@@ -2,8 +2,14 @@
 import Foundation
 
 enum AppConfig {
-    static let appVersion = "0.2.0"
-    static let buildNumber = "3"
+    /// Marketing version and build come from the built Info.plist.
+    /// CI sets CURRENT_PROJECT_VERSION to the GitHub Actions run number.
+    static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.1"
+    }
+    static var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "4"
+    }
 
     static let defaultServerURL = "http://100.116.10.96:8510"
     static let lanFallbackURL = "http://192.168.1.241:8510"

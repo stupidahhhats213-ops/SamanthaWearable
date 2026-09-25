@@ -3,10 +3,14 @@ name: Build iOS (unsigned IPA)
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - "altstore/**"
+      - "docs/**"
+      - "**.md"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -120,6 +124,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             build | tee "$RUNNER_TEMP/xcodebuild.log"
           # Fail if build did not succeed (xcodebuild exit already fails; also grep)
           grep -q 'BUILD SUCCEEDED' "$RUNNER_TEMP/xcodebuild.log"
@@ -194,3 +199,112 @@ jobs:
             ci-artifacts/SamanthaWearable.app
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: GitHub Release and AltStore source
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: SamanthaWearable-iOS
+          path: ci-artifacts
+
+      - name: Publish release and source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          IPA=$(find ci-artifacts -name 'SamanthaWearable-unsigned.ipa' | head -1)
+          test -n "$IPA"
+          SIZE=$(stat -c%s "$IPA")
+          SHA=$(sha256sum "$IPA" | awk '{print $1}')
+          APP=$(find ci-artifacts -name 'SamanthaWearable.app' -type d | head -1)
+          VERSION=$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist" 2>/dev/null || python3 - <<PY
+          import plistlib,sys
+          print(plistlib.load(open("$APP/Info.plist","rb"))["CFBundleShortVersionString"])
+          PY
+          )
+          BUILD=$(python3 - <<PY
+          import plistlib
+          print(plistlib.load(open("$APP/Info.plist","rb"))["CFBundleVersion"])
+          PY
+          )
+          mkdir -p altstore docs
+          echo "version=$VERSION build=$BUILD size=$SIZE sha=$SHA"
+          TAG="samantha-${VERSION}-build${BUILD}"
+          ASSET="SamanthaWearable-${VERSION}-build${BUILD}.ipa"
+          cp "$IPA" "$ASSET"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" \
+              --title "SamanthaWearable ${VERSION} (${BUILD})" \
+              --notes "Unsigned iOS build. Sideload with AltStore. Meta session starts only after the glasses are session-eligible."
+          fi
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${ASSET}"
+          DATE=$(date -u +%Y-%m-%d)
+          python3 - "$VERSION" "$BUILD" "$DATE" "$URL" "$SIZE" "$SHA" <<'PY'
+          import json, sys
+          version, build, date, url, size, sha = sys.argv[1:]
+          source = {
+            "name": "Samantha",
+            "subtitle": "SamanthaWearable sideload builds",
+            "description": "Unsigned SamanthaWearable builds for AltStore Classic. Updates appear after each successful main-branch build. Installing or refreshing still needs AltServer and a tap in AltStore.",
+            "website": "https://github.com/stupidahhhats213-ops/SamanthaWearable",
+            "tintColor": "#F28A00",
+            "featuredApps": ["com.samantha.wearable"],
+            "apps": [{
+              "name": "SamanthaWearable",
+              "bundleIdentifier": "com.samantha.wearable",
+              "developerName": "Samantha",
+              "subtitle": "Meta glasses bridge for Samantha Control Center",
+              "localizedDescription": "Connects an iPhone to Samantha Control Center and opens a Meta Wearables DAT session after the glasses are linked, compatible, and session-eligible.",
+              "category": "utilities",
+              "tintColor": "#F28A00",
+              "appPermissions": {
+                "entitlements": [],
+                "privacy": {
+                  "NSBluetoothAlwaysUsageDescription": "Needed to connect to Meta AI Glasses",
+                  "NSBluetoothPeripheralUsageDescription": "Needed to connect to Meta AI Glasses",
+                  "NSLocalNetworkUsageDescription": "Samantha Wearable connects to your local Samantha Control Center and discovers Meta glasses over Wi-Fi.",
+                  "NSCameraUsageDescription": "Camera access is used when simulating a Meta glasses feed on this iPhone.",
+                  "NSMicrophoneUsageDescription": "Microphone access is used to detect and use the Meta glasses microphone when available."
+                }
+              },
+              "versions": [{
+                "version": version,
+                "buildVersion": build,
+                "date": date,
+                "localizedDescription": "Waits until Meta DAT marks the glasses session-eligible before starting the device session.",
+                "downloadURL": url,
+                "size": int(size),
+                "sha256": sha,
+                "minOSVersion": "17.2"
+              }]
+            }],
+            "news": []
+          }
+          text = json.dumps(source, indent=2) + "\n"
+          for path in ("altstore/source.json", "docs/source.json"):
+            open(path, "w", encoding="utf-8").write(text)
+            print("wrote", path)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add altstore/source.json docs/source.json
+          if git diff --cached --quiet; then
+            echo "source unchanged"
+          else
+            git commit -m "Publish AltStore source for ${VERSION} (${BUILD}) [skip ci]"
+            git push origin HEAD:main
+          fi

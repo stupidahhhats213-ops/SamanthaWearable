@@ -2,7 +2,7 @@
 
 Native SwiftUI bridge for Samantha Control Center wearable API (`:8510`) with Meta Wearables DAT glasses integration.
 
-**Version:** 0.2.0 (build 3)  
+**Version:** 0.2.1 (local build baseline 4; published builds use the GitHub Actions run number)  
 **Bundle ID:** `com.samantha.wearable`  
 **Deployment target:** iOS 17.2 (`MinimumOSVersion` in MWDATCore.xcframework 1.0.0)  
 **Default server:** `http://100.116.10.96:8510` (Tailscale)  
@@ -45,7 +45,8 @@ Launch app → Wearables.configure()
   → Meta AI callback samanthawearable://…?metaWearablesAction=…
   → .onOpenURL → Wearables.handleUrl(_:)
   → registrationState == .registered
-  → user taps CONNECT → DeviceSession via AutoDeviceSelector
+  → user taps CONNECT → wait until AutoDeviceSelector.activeDevice is set and the glasses are linked and compatible
+  → DeviceSession start
   → connectionState == .connected → heartbeat carries glasses telemetry
 ```
 
@@ -95,3 +96,21 @@ Speech (`MWDATSpeech`) is **experimental** / not production-publishable — not 
 ## Acceptance (physical)
 
 Must be verified on physical iPhone + Meta glasses + live Samantha `:8510`. This Windows authoring environment **cannot** run that validation.
+
+## Versioning
+
+`MARKETING_VERSION` in the Xcode project is the semantic version (`0.2.1`). Change that by hand when the app's behavior changes.
+
+`CURRENT_PROJECT_VERSION` in the project is the local baseline (`4`). GitHub Actions passes `CURRENT_PROJECT_VERSION` as `github.run_number` for the unsigned IPA, so a normal local edit does not bump the build and CI does not commit a version change.
+
+The app reads both values from the built Info.plist.
+
+## AltStore
+
+Successful `main` builds publish an unsigned IPA on GitHub Releases and write `altstore/source.json` plus `docs/source.json`. Source-only commits are ignored by the iOS workflow so that update does not rebuild.
+
+Public source URL, after GitHub Pages is enabled from the `docs` folder:
+
+`https://stupidahhhats213-ops.github.io/SamanthaWearable/source.json`
+
+Add that source once in AltStore. A newer release shows as an update. AltStore does not install it silently. A free Apple ID signature still expires, and AltServer must be reachable when you tap Update.
