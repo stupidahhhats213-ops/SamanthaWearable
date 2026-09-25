@@ -3,66 +3,57 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: DashboardViewModel
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appearance: AppearanceStore
+    var openAppearance: () -> Void = {}
 
     var body: some View {
-        Form {
-            Section("Server") {
-                TextField("Server URL", text: $viewModel.serverURL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                Text("Default Tailscale: \(AppConfig.defaultServerURL)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text("LAN fallback: \(AppConfig.lanFallbackURL)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Button("Use Tailscale URL") {
-                    viewModel.serverURL = AppConfig.defaultServerURL
+        ScrollView {
+            VStack(alignment: .leading, spacing: appearance.sectionGap) {
+                TerminalPanel(title: "SERVER") {
+                    TextField("Server URL", text: $viewModel.serverURL)
+                        .font(appearance.font(size: 12, weight: .medium))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                    MetricRow(label: "Tailscale", value: AppConfig.defaultServerURL, tone: .muted)
+                    MetricRow(label: "LAN", value: AppConfig.lanFallbackURL, tone: .muted)
+                    ConsoleButton(title: "USE TAILSCALE") { viewModel.serverURL = AppConfig.defaultServerURL }
+                    ConsoleButton(title: "USE LAN") { viewModel.serverURL = AppConfig.lanFallbackURL }
                 }
-                Button("Use LAN URL") {
-                    viewModel.serverURL = AppConfig.lanFallbackURL
+                TerminalPanel(title: "AUTHENTICATION") {
+                    Toggle("Authentication enabled", isOn: $viewModel.authEnabled)
+                        .font(appearance.font(size: 12, weight: .bold))
+                        .tint(appearance.accent)
+                    SecureField("API token", text: $viewModel.apiToken)
+                        .font(appearance.font(size: 12, weight: .medium))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Text("Token stays in Keychain.")
+                        .font(appearance.font(size: 10, weight: .medium))
+                        .foregroundStyle(appearance.muted)
                 }
-            }
-
-            Section("Authentication") {
-                Toggle("Authentication Enabled", isOn: $viewModel.authEnabled)
-                SecureField("API Token", text: $viewModel.apiToken)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Text("Token is stored in Keychain and never logged.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Heartbeat") {
-                Stepper(
-                    value: $viewModel.heartbeatInterval,
-                    in: 2...30,
-                    step: 1
-                ) {
-                    Text("Interval: \(Int(viewModel.heartbeatInterval)) sec")
+                TerminalPanel(title: "HEARTBEAT") {
+                    Stepper(value: $viewModel.heartbeatInterval, in: 2...30, step: 1) {
+                        Text("Interval \(Int(viewModel.heartbeatInterval)) sec")
+                            .font(appearance.font(size: 12, weight: .medium))
+                            .foregroundStyle(appearance.text)
+                    }
+                    .tint(appearance.accent)
                 }
-            }
-
-            Section("Device") {
-                LabeledContent("Device ID", value: viewModel.deviceID)
-                LabeledContent("Name", value: viewModel.deviceName)
-                LabeledContent("App", value: "\(AppConfig.appVersion) (\(AppConfig.buildNumber))")
-            }
-
-            Section {
-                Button("Save & Reconnect") {
+                TerminalPanel(title: "DEVICE") {
+                    MetricRow(label: "ID", value: viewModel.deviceID, tone: .muted)
+                    MetricRow(label: "Name", value: viewModel.deviceName)
+                    MetricRow(label: "App", value: "\(AppConfig.appVersion) (\(AppConfig.buildNumber))")
+                }
+                ConsoleButton(title: "APPEARANCE") { openAppearance() }
+                ConsoleButton(title: "SAVE & RECONNECT", prominent: true) {
                     viewModel.saveSettingsAndReconnect()
-                    dismiss()
                 }
-                .fontWeight(.semibold)
             }
+            .padding(appearance.pad)
+            .padding(.bottom, 88)
         }
-        .scrollContentBackground(.hidden)
-        .background(HUD.bg.ignoresSafeArea())
-        .tint(HUD.amber)
+        .background(appearance.background)
         .navigationTitle("SETTINGS")
         .navigationBarTitleDisplayMode(.inline)
     }

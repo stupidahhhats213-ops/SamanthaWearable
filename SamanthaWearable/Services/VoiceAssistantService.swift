@@ -140,6 +140,17 @@ final class VoiceAssistantService: NSObject, ObservableObject, AVSpeechSynthesiz
         beginRecognition()
     }
 
+    func sendTypedCommand(_ text: String) {
+        let spoken = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !spoken.isEmpty else { return }
+        interruptForCommand()
+        transcript = spoken
+        commandMode = true
+        stopCaptureEngineOnly()
+        phase = .thinking
+        Task { await submit(text: spoken) }
+    }
+
     func startTalking() {
         speakGeneration += 1
         playbackWatchdog?.cancel()

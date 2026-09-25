@@ -1,319 +1,256 @@
 // Views/DashboardView.swift
 import SwiftUI
 
+struct ColumnSizeKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
+}
+
 struct DashboardView: View {
     @ObservedObject var viewModel: DashboardViewModel
-    @State private var tick = Date()
+    @EnvironmentObject private var appearance: AppearanceStore
+    @State private var path = NavigationPath()
+    @State private var menuOpen = false
+    @State private var nested: String?
+    @State private var restored = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    header
-
-                    SectionCard(
-                        title: "SERVER",
-                        trailing: "● \(viewModel.connectionState.rawValue)",
-                        trailingColor: statusDotColor(viewModel.connectionState)
-                    ) {
-                        StatusRow(title: "Host", value: viewModel.hostLabel)
-                        StatusRow(title: "URL", value: shortURL(viewModel.serverURL), accent: Color(white: 0.75))
-                        StatusRow(
-                            title: "Latency",
-                            value: viewModel.latencyMs.map { String(format: "%.0f ms", $0) } ?? "N/A"
-                        )
-                        StatusRow(
-                            title: "API",
-                            value: viewModel.serverService.map { "\($0) v\(viewModel.serverAPIVersion ?? "?")" } ?? "—"
-                        )
-                        StatusRow(title: "Device ID", value: shortID(viewModel.deviceID), accent: Color(white: 0.7))
-                    }
-
-                    SectionCard(
-                        title: "HEARTBEAT",
-                        trailing: viewModel.heartbeat.isActive ? "● ACTIVE" : "● IDLE",
-                        trailingColor: viewModel.heartbeat.isActive ? HUD.amber : HUD.muted
-                    ) {
-                        StatusRow(title: "Last Send", value: viewModel.lastHeartbeatAgeText)
-                        StatusRow(title: "Interval", value: String(format: "%.0f sec", viewModel.heartbeatInterval))
-                        StatusRow(title: "Success", value: "\(viewModel.heartbeat.successCount)")
-                        StatusRow(title: "Failures", value: "\(viewModel.heartbeat.failureCount)")
-                        if let status = viewModel.heartbeat.lastServerStatus {
-                            StatusRow(title: "Server", value: status)
-                        }
-                    }
-
-                    SectionCard(title: "IPHONE") {
-                        StatusRow(title: "Name", value: viewModel.deviceName, accent: Color(white: 0.85))
-                        StatusRow(title: "Battery", value: viewModel.batteryText)
-                        StatusRow(title: "Charging", value: viewModel.chargingText)
-                        StatusRow(title: "Network", value: viewModel.networkText)
-                    }
-
-                    metaGlassesSection
-                    voiceSection
-
-                    if let err = viewModel.lastError
-                        ?? viewModel.heartbeat.lastError
-                        ?? viewModel.metaGlasses.lastError {
-                        Text(err)
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(HUD.red)
-                            .padding(.horizontal, 4)
-                    }
-
-                    if let test = viewModel.testResult {
-                        Text(test)
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Color(white: 0.75))
-                            .padding(.horizontal, 4)
-                    }
-
-                    Button {
-                        viewModel.testConnection()
-                    } label: {
-                        Text("TEST CONNECTION")
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    }
-                    .buttonStyle(HUDButtonStyle(prominent: true))
-
-                    NavigationLink {
-                        SettingsView(viewModel: viewModel)
-                    } label: {
-                        Text("SETTINGS")
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    }
-                    .buttonStyle(HUDButtonStyle())
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                if geo.size.width > geo.size.height && geo.size.width > 700 {
+                    rail
+                        .frame(width: 148)
                 }
-                .padding(16)
+                consoleColumn
             }
-            .background(HUD.bg.ignoresSafeArea())
-            .tint(HUD.amber)
-            .navigationBarHidden(true)
-            .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { now in
-                tick = now
+        }
+        .background(appearance.background.ignoresSafeArea())
+        .tint(appearance.accent)
+        .onAppear {
+            guard !restored else { return }
+            restored = true
+            if let route = ConsoleRoute(storage: appearance.lastPage), appearance.lastPage != "home" {
+                path.append(route)
             }
-            .sheet(isPresented: $viewModel.photoPreviewVisible) {
-                photoPreviewSheet
+        }
+        .onChange(of: viewModel.voice.reply) { _, reply in
+            viewModel.noteReply(reply)
+        }
+        .onChange(of: viewModel.connectionState) { _, state in
+            viewModel.note("SYSTEM", state.rawValue)
+        }
+        .onChange(of: viewModel.metaGlasses.connectionState) { _, state in
+            viewModel.note("WEARABLE", state.rawValue)
+        }
+        .sheet(isPresented: $viewModel.photoPreviewVisible) {
+            photoPreview
+        }
+    }
+
+    @State private var columnSize = CGSize.zero
+
+    private var consoleColumn: some View {
+        ZStack {
+            NavigationStack(path: $path) {
+                HomeScreen(viewModel: viewModel, open: open)
+                    .navigationDestination(for: ConsoleRoute.self) { route in
+                        destination(route)
+                    }
+            }
+            if menuOpen {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(appearance.blurStrength)
+                    .background(Color.black.opacity(0.28 * appearance.blurStrength))
+                    .ignoresSafeArea()
+                    .onTapGesture { closeMenu() }
+                    .accessibilityLabel("Dismiss Samantha menu")
+            }
+        }
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(key: ColumnSizeKey.self, value: geo.size)
+            }
+        )
+        .onPreferenceChange(ColumnSizeKey.self) { columnSize = $0 }
+        .overlay(alignment: .topLeading) {
+            if appearance.bubbleEnabled, columnSize.width > 1 {
+                SamanthaBubbleOverlay(
+                    size: columnSize,
+                    bottomObstruction: path.isEmpty ? 74 : 12,
+                    menuOpen: $menuOpen,
+                    nested: $nested,
+                    onAction: handleBubble
+                )
             }
         }
     }
 
-    private var metaGlassesSection: some View {
-        let meta = viewModel.metaGlasses
-        return SectionCard(
-            title: "META GLASSES",
-            trailing: "● \(meta.statusText)",
-            trailingColor: viewModel.metaTrailingColor
-        ) {
-            StatusRow(title: "Status", value: meta.connectionState.rawValue)
-            StatusRow(title: "Register", value: meta.registrationState.rawValue, accent: Color(white: 0.75))
-            StatusRow(title: "Session", value: meta.sessionStateText, accent: Color(white: 0.75))
-            StatusRow(
-                title: "Device",
-                value: meta.connectedDeviceName ?? "—",
-                accent: Color(white: 0.85)
-            )
-            StatusRow(title: "Device ID", value: shortID(meta.connectedDeviceId ?? "—"), accent: Color(white: 0.7))
-            StatusRow(title: "Link", value: meta.linkStateText, accent: Color(white: 0.75))
-            StatusRow(title: "Compat", value: meta.compatibilityText, accent: Color(white: 0.75))
-            StatusRow(title: "Camera", value: "\(meta.cameraLabel.rawValue) · \(meta.cameraPermission.rawValue)")
-            StatusRow(title: "Microphone", value: "\(meta.microphoneLabel.rawValue) · \(meta.microphonePermission.rawValue)")
-            StatusRow(title: "Audio", value: meta.audioOutputLabel.rawValue)
-            StatusRow(title: "Battery", value: viewModel.glassesBatteryText)
-
-            if meta.requiresFirmwareUpdate {
-                Text("Firmware update required")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(HUD.red)
-            }
-
-            VStack(spacing: 8) {
-                Button {
-                    viewModel.connectMetaGlasses()
-                } label: {
-                    Text(meta.registrationState == .registered ? "CONNECT" : "CONNECT META GLASSES")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(HUDButtonStyle(prominent: true))
-                .disabled(viewModel.glassesActionBusy || meta.connectionState == .connected || meta.connectionState == .connecting)
-
-                Button {
-                    viewModel.disconnectMetaGlasses()
-                } label: {
-                    Text("DISCONNECT")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(HUDButtonStyle())
-                .disabled(viewModel.glassesActionBusy || !meta.glassesConnected)
-
-                Button {
-                    viewModel.testCamera()
-                } label: {
-                    Text(meta.isCapturingPhoto ? "CAPTURING…" : "TEST CAMERA")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(HUDButtonStyle())
-                .disabled(viewModel.glassesActionBusy || !meta.glassesConnected || meta.isCapturingPhoto)
-
-                if meta.requiresFirmwareUpdate {
-                    Button {
-                        Task { await meta.openFirmwareUpdate() }
-                    } label: {
-                        Text("OPEN FIRMWARE UPDATE")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                    }
-                    .buttonStyle(HUDButtonStyle())
-                }
-            }
-            .padding(.top, 6)
+    private var rail: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("NAV")
+                .font(appearance.font(size: 10, weight: .bold))
+                .foregroundStyle(appearance.muted)
+                .padding(.bottom, 6)
+            railButton("HOME") { path = NavigationPath(); appearance.setLastPage("home") }
+            railButton("HERMES") { open(.hermes) }
+            railButton("VOICE") { open(.voice) }
+            railButton("PROJECTS") { open(.projects) }
+            railButton("SYSTEM") { open(.system) }
+            railButton("MODELS") { open(.models) }
+            railButton("LOGS") { open(.logs) }
+            railButton("SETTINGS") { open(.settings) }
+            Spacer()
+        }
+        .padding(10)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(appearance.panel)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(appearance.border).frame(width: appearance.lineWidth)
         }
     }
 
-    private var voiceSection: some View {
-        let voice = viewModel.voice
-        return SectionCard(title: "VOICE ASSISTANT", trailing: voice.phase.rawValue) {
-            StatusRow(title: "Wake phrase", value: "Hey Samantha")
-            StatusRow(title: "Wake detection", value: voice.heySamanthaEnabled ? "ENABLED" : "DISABLED")
-            StatusRow(title: "Transcript", value: voice.transcript.isEmpty ? "—" : voice.transcript)
-            StatusRow(title: "Reply", value: voice.reply.isEmpty ? "—" : voice.reply)
-            StatusRow(title: "Audio Route", value: "\(voice.audioRoute) · \(voice.routeDetail)")
-            StatusRow(title: "Voice", value: voice.voiceEngine)
-            StatusRow(title: "Response", value: voice.responseMode)
-            StatusRow(title: "Mood", value: voice.mood)
-            StatusRow(title: "LLM", value: voice.llmMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "LLM first token", value: voice.llmFirstTokenMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "First sentence", value: voice.firstSentenceMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "F5 first chunk", value: voice.f5FirstChunkMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "Playback start", value: voice.playbackStartMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "Follow-up", value: voice.followUpOpen ? String(format: "OPEN %.1f s", voice.followUpRemaining) : "CLOSED")
-            StatusRow(title: "Proactive", value: voice.proactiveEnabled && !voice.muted ? "enabled" : "muted")
-            StatusRow(title: "TTS GPU", value: voice.ttsGPU)
-            StatusRow(title: "First audio", value: voice.firstAudioMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "Synthesis", value: voice.synthesisMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "Wake → text", value: voice.wakeToTranscriptMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "API", value: voice.apiLatencyMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            StatusRow(title: "Total", value: voice.totalLatencyMs.map { String(format: "%.0f ms", $0) } ?? "—")
-            Toggle("Hey Samantha", isOn: Binding(
-                get: { voice.heySamanthaEnabled },
-                set: { voice.heySamanthaEnabled = $0; viewModel.syncVoice() }
-            ))
-            Toggle("Proactive updates", isOn: Binding(
-                get: { voice.proactiveEnabled },
-                set: { voice.proactiveEnabled = $0 }
-            ))
-            Toggle("Mute Samantha", isOn: Binding(
-                get: { voice.muted },
-                set: { voice.muted = $0 }
-            ))
-            Button {
-                viewModel.voice.startTalking()
-            } label: {
-                Text("START TALKING")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(HUDButtonStyle(prominent: true))
-            Button {
-                viewModel.voice.stopSpeaking()
-            } label: {
-                Text("STOP SPEAKING")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(HUDButtonStyle())
-            if voice.needsConfirmation {
-                Button { viewModel.voice.confirmPending() } label: {
-                    Text("CONFIRM")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(HUDButtonStyle(prominent: true))
-                Button { viewModel.voice.cancelPending() } label: {
-                    Text("CANCEL")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(HUDButtonStyle())
-            }
+    private func railButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(appearance.font(size: 11, weight: .bold))
+                .foregroundStyle(appearance.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func destination(_ route: ConsoleRoute) -> some View {
+        switch route {
+        case .hermes:
+            HermesScreen(viewModel: viewModel)
+        case .voice:
+            VoiceScreen(viewModel: viewModel)
+        case .projects:
+            ProjectsScreen(viewModel: viewModel, open: open)
+        case .system:
+            SystemScreen(viewModel: viewModel, open: open)
+        case .models:
+            ModelsScreen(viewModel: viewModel)
+        case .gpus:
+            GPUScreen(viewModel: viewModel)
+        case .logs:
+            LogsScreen(viewModel: viewModel)
+        case .settings:
+            SettingsView(viewModel: viewModel, openAppearance: { open(.appearance) })
+        case .appearance:
+            AppearanceScreen()
+        case .wearable:
+            WearableScreen(viewModel: viewModel)
+        case .project(let id):
+            ProjectDetailScreen(viewModel: viewModel, projectID: id)
         }
     }
 
-    private var photoPreviewSheet: some View {
+    private func open(_ route: ConsoleRoute) {
+        path.append(route)
+        appearance.setLastPage(route.storage)
+        closeMenu()
+    }
+
+    private func closeMenu() {
+        menuOpen = false
+        nested = nil
+    }
+
+    private func handleBubble(_ action: String) {
+        switch action {
+        case "hermes.open":
+            open(.hermes)
+        case "hermes.status":
+            viewModel.commandTarget = "HERMES"
+            viewModel.submitConsole("status")
+            closeMenu()
+        case "hermes.interrupt":
+            viewModel.interruptHermes()
+            closeMenu()
+        case "hermes.reconnect":
+            viewModel.reconnectEvents()
+            closeMenu()
+        case "hermes.restart":
+            viewModel.commandTarget = "HERMES"
+            viewModel.submitConsole("restart")
+            closeMenu()
+        case "hermes.logs":
+            appearance.setLogFilter("HERMES")
+            open(.logs)
+        case "voice.wake":
+            viewModel.voice.heySamanthaEnabled.toggle()
+            viewModel.syncVoice()
+        case "voice.mute":
+            viewModel.voice.muted.toggle()
+        case "voice.stop":
+            viewModel.voice.stopSpeaking()
+            closeMenu()
+        case "voice.route":
+            open(.voice)
+        case "voice.page", "voice.follow":
+            open(.voice)
+        case "system.gpus":
+            open(.gpus)
+        case "system.models":
+            open(.models)
+        case "system.services", "system.network":
+            open(.system)
+        case "system.health":
+            viewModel.testConnection()
+            closeMenu()
+        case "system.wearable":
+            open(.wearable)
+        case "projects.open":
+            if let id = viewModel.projects.first?.id {
+                appearance.setSelectedProject(appearance.selectedProject.isEmpty ? id : appearance.selectedProject)
+                open(.project(appearance.selectedProject))
+            } else {
+                open(.projects)
+            }
+        case "projects.builds", "projects.git", "projects.switch":
+            open(.projects)
+        case "logs.open":
+            open(.logs)
+        case "settings.open":
+            open(.settings)
+        case "settings.appearance":
+            open(.appearance)
+        default:
+            break
+        }
+    }
+
+    private var photoPreview: some View {
         NavigationStack {
             VStack(spacing: 16) {
                 if let image = viewModel.metaGlasses.lastPhotoImage {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .padding()
                     Text("JPEG \(viewModel.metaGlasses.lastPhotoByteCount) bytes")
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color(white: 0.6))
+                        .font(appearance.font(size: 12, weight: .medium))
+                        .foregroundStyle(appearance.muted)
                 } else {
                     Text("No photo")
-                        .foregroundStyle(Color(white: 0.5))
+                        .foregroundStyle(appearance.muted)
                 }
                 Spacer()
             }
-            .background(HUD.bg.ignoresSafeArea())
+            .background(appearance.background.ignoresSafeArea())
             .navigationTitle("Camera Capture")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        viewModel.dismissPhotoPreview()
-                    }
+                    Button("Close") { viewModel.dismissPhotoPreview() }
                 }
             }
         }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("SAMANTHA")
-                    .font(.system(size: 28, weight: .bold, design: .serif))
-                    .foregroundStyle(HUD.ivory)
-                Text("/ WEARABLE")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HUD.amber)
-            }
-            Text("SYS/CTRL  •  LIVE TELEMETRY  •  v\(AppConfig.appVersion)")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(HUD.muted)
-            Rectangle()
-                .fill(HUD.amber)
-                .frame(height: 3)
-                .padding(.top, 6)
-        }
-        .padding(.bottom, 4)
-        .opacity(tick.timeIntervalSince1970 > 0 ? 1 : 1)
-    }
-
-    private func shortURL(_ raw: String) -> String {
-        raw.replacingOccurrences(of: "http://", with: "")
-    }
-
-    private func shortID(_ raw: String) -> String {
-        if raw.count <= 18 { return raw }
-        return String(raw.prefix(18)) + "…"
     }
 }

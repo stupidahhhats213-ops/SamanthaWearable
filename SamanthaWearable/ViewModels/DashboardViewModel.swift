@@ -22,6 +22,12 @@ final class DashboardViewModel: ObservableObject {
     @Published var testResult: String?
     @Published var photoPreviewVisible = false
     @Published var glassesActionBusy = false
+    @Published var console = ConsoleSnapshot()
+    @Published var projects: [ProjectRecord] = []
+    @Published var events: [ConsoleEvent] = []
+    @Published var terminal: [String] = []
+    @Published var commandTarget = "SAMANTHA"
+    @Published var commandDraft = ""
 
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: AppConfig.Keys.serverURL) }
@@ -53,6 +59,13 @@ final class DashboardViewModel: ObservableObject {
     private var glassesCancellable: AnyCancellable?
     private var lastVoiceGlasses = false
     private var voiceSynced = false
+    private var consoleTask: Task<Void, Never>?
+    private var seenHermes = ""
+    private var seenBuild = ""
+    private var seenVoice = ""
+    private var seenMain = ""
+    private var consoleWarned = false
+    private var lastLoggedReply = ""
 
     var deviceID: String { DeviceIdentity.deviceID }
     var deviceName: String { DeviceIdentity.deviceName }
@@ -138,6 +151,9 @@ final class DashboardViewModel: ObservableObject {
         telemetry.start()
         applySettingsToAPI()
         startSession()
+        startConsolePoll()
+        refreshProjects()
+        note("SYSTEM", "console open")
     }
 
     func onResignActive() {
@@ -146,6 +162,7 @@ final class DashboardViewModel: ObservableObject {
         heartbeat.stop()
         voice.setForeground(false, glassesConnected: false)
         voice.disconnectEvents()
+        consoleTask?.cancel()
         #if DEBUG
         print("[Lifecycle] resign active — heartbeat suspended, Meta camera stopped")
         #endif
@@ -166,6 +183,7 @@ final class DashboardViewModel: ObservableObject {
         // Cancels prior reconnect Task; HeartbeatService.start() stops any prior loop first.
         startSession()
         syncVoice()
+        startConsolePoll()
     }
 
     func syncVoice() {
@@ -356,5 +374,240 @@ final class DashboardViewModel: ObservableObject {
         case .error, .unsupported: return Color(red: 0.89, green: 0.36, blue: 0.20)
         case .disconnected: return Color(white: 0.45)
         }
+    }
+
+    var nodeState: String {
+        switch connectionState {
+        case .connected: return lastError == nil ? "NOMINAL" : "DEGRADED"
+        case .connecting: return "LINKING"
+        case .error: return "FAULT"
+        case .disconnected: return "OFFLINE"
+        }
+    }
+
+    func note(_ channel: String, _ message: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        events.append(ConsoleEvent(at: Date(), channel: channel, message: trimmed))
+        if events.count > 200 {
+            events.removeFirst(events.count - 200)
+        }
+    }
+
+    func noteReply(_ text: String) {
+        guard text != lastLoggedReply else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        lastLoggedReply = trimmed
+        terminal.append(trimmed)
+        if terminal.count > 80 { terminal.removeFirst(terminal.count - 80) }
+        note("VOICE", trimmed)
+    }
+
+    func route(forShortcut raw: String) -> ConsoleRoute? {
+        switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "home": return nil
+        case "hermes": return .hermes
+        case "voice": return .voice
+        case "projects": return .projects
+        case "system": return .system
+        case "models": return .models
+        case "gpus", "gpu": return .gpus
+        case "logs", "log": return .logs
+        case "settings": return .settings
+        case "appearance": return .appearance
+        case "glasses", "wearable": return .wearable
+        default: return nil
+        }
+    }
+
+    func submitConsole(_ raw: String) {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let routed: String
+        if commandTarget == "HERMES" && !text.lowercased().contains("hermes") {
+            routed = "hermes \(text)"
+        } else {
+            routed = text
+        }
+        terminal.append("> \(routed)")
+        note("SYSTEM", routed)
+        voice.sendTypedCommand(routed)
+    }
+
+    func interruptHermes() {
+        voice.stopSpeaking()
+        terminal.append("local speech stop. Hermes has no shell interrupt on this phone.")
+        note("HERMES", "local interrupt")
+    }
+
+    func reconnectEvents() {
+        voice.disconnectEvents()
+        voice.connectEvents(baseURL: serverURL)
+        note("SYSTEM", "event socket reconnect")
+    }
+
+    func startConsolePoll() {
+        consoleTask?.cancel()
+        consoleTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshConsole()
+                let seconds = max(self?.heartbeatInterval ?? 8, 8)
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            }
+        }
+    }
+
+    func refreshConsole() async {
+        do {
+            var data = try await api.console()
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               (obj["ready"] as? Bool) != true {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                data = try await api.console()
+            }
+            applyConsole(data)
+            consoleWarned = false
+        } catch {
+            if isBenignCancellation(error) { return }
+            if !consoleWarned {
+                consoleWarned = true
+                note("SYSTEM", "console unavailable")
+            }
+        }
+    }
+
+    func refreshProjects() {
+        Task { await loadProjects() }
+    }
+
+    func loadProject(_ id: String) async -> ProjectRecord? {
+        do {
+            let data = try await api.projectStatus(id)
+            guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            let record = parseProject(obj["project"] as? [String: Any] ?? obj)
+            if let index = projects.firstIndex(where: { $0.id == record.id }) {
+                projects[index] = record
+            }
+            return record
+        } catch {
+            return projects.first { $0.id == id }
+        }
+    }
+
+    private func loadProjects() async {
+        do {
+            let data = try await api.projects()
+            guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let rows = obj["projects"] as? [[String: Any]] else { return }
+            projects = rows.map(parseProject)
+        } catch {
+            if isBenignCancellation(error) { return }
+            note("SYSTEM", "project list unavailable")
+        }
+    }
+
+    private func applyConsole(_ data: Data) {
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        var next = ConsoleSnapshot()
+        next.ready = obj["ready"] as? Bool ?? false
+        next.host = obj["host"] as? String ?? ""
+        next.ageSec = obj["age_sec"] as? Double
+        if let rows = obj["gpus"] as? [[String: Any]] {
+            next.gpus = rows.compactMap { row in
+                guard let id = intValue(row["id"]) else { return nil }
+                return GPUReading(
+                    id: id,
+                    temp: doubleValue(row["temp_c"]),
+                    power: doubleValue(row["power_w"]),
+                    vramUsed: doubleValue(row["vram_used_mb"]),
+                    vramTotal: doubleValue(row["vram_total_mb"]),
+                    util: doubleValue(row["utilization"])
+                )
+            }
+        }
+        if let hermes = obj["hermes"] as? [String: Any] {
+            next.hermesState = hermes["state"] as? String ?? ""
+            next.hermesDetail = hermes["detail"] as? String ?? ""
+            next.hermesPID = intValue(hermes["pid"])
+        }
+        if let models = obj["models"] as? [String: Any] {
+            if let main = models["main"] as? [String: Any] {
+                next.mainName = main["name"] as? String ?? ""
+                next.mainUnit = main["unit"] as? String ?? ""
+                next.mainUp = main["up"] as? Bool
+            }
+            if let helper = models["helper"] as? [String: Any] {
+                next.helperName = helper["name"] as? String ?? ""
+                next.helperUnit = helper["unit"] as? String ?? ""
+                next.helperUp = helper["up"] as? Bool
+            }
+            if let voice = models["voice"] as? [String: Any] {
+                next.voiceUp = voice["up"] as? Bool
+            }
+            if let stt = models["stt"] as? [String: Any] {
+                next.sttUnit = stt["unit"] as? String ?? ""
+                next.sttUp = stt["up"] as? Bool
+            }
+        }
+        if let build = obj["build"] as? [String: Any] {
+            next.buildName = build["name"] as? String ?? ""
+            next.buildConclusion = build["conclusion"] as? String ?? build["status"] as? String ?? ""
+        }
+        let previous = console
+        console = next
+        guard next.ready else { return }
+        observeChange("HERMES", previous: seenHermes, next: next.hermesState)
+        seenHermes = next.hermesState
+        let buildLine = [next.buildConclusion, next.buildName].filter { !$0.isEmpty }.joined(separator: " ")
+        observeChange("BUILD", previous: seenBuild, next: buildLine)
+        seenBuild = buildLine
+        let voiceLine = next.voiceUp == true ? "READY" : (next.voiceUp == false ? "OFFLINE" : "")
+        observeChange("VOICE", previous: seenVoice, next: voiceLine)
+        seenVoice = voiceLine
+        let mainLine = next.mainUp == true ? "ACTIVE" : (next.mainUp == false ? "OFFLINE" : "")
+        observeChange("SYSTEM", previous: seenMain, next: mainLine.isEmpty ? "" : "main model \(mainLine)")
+        seenMain = mainLine.isEmpty ? "" : "main model \(mainLine)"
+        if previous.gpus.contains(where: { $0.temp >= 80 }) == false {
+            if let hot = next.gpus.first(where: { $0.temp >= 80 }) {
+                note("GPU", String(format: "G%d %.0fC", hot.id, hot.temp))
+            }
+        }
+    }
+
+    private func observeChange(_ channel: String, previous: String, next: String) {
+        guard !next.isEmpty, next != previous else { return }
+        note(channel, next)
+    }
+
+    private func parseProject(_ row: [String: Any]) -> ProjectRecord {
+        let git = row["git_status"] as? String ?? ""
+        let branch = git.hasPrefix("## ") ? git.dropFirst(3).split(separator: ".").first.map(String.init) ?? "" : ""
+        let build = row["last_build"] as? [String: Any] ?? [:]
+        return ProjectRecord(
+            id: row["project_id"] as? String ?? "",
+            name: row["name"] as? String ?? (row["project_id"] as? String ?? "project"),
+            branch: branch,
+            gitStatus: git,
+            dirtyCount: intValue(row["dirty_count"]) ?? 0,
+            lastCommit: row["last_commit"] as? String ?? "",
+            buildConclusion: build["conclusion"] as? String ?? "",
+            buildName: build["name"] as? String ?? "",
+            exists: row["exists"] as? Bool ?? true
+        )
+    }
+
+    private func intValue(_ value: Any?) -> Int? {
+        if let value = value as? Int { return value }
+        if let value = value as? Double { return Int(value) }
+        if let value = value as? String { return Int(value) }
+        return nil
+    }
+
+    private func doubleValue(_ value: Any?) -> Double {
+        if let value = value as? Double { return value }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? String { return Double(value) ?? 0 }
+        return 0
     }
 }

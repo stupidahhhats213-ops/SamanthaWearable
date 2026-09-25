@@ -4,11 +4,13 @@ import SwiftUI
 @main
 struct SamanthaWearableApp: App {
     @StateObject private var dashboard = DashboardViewModel()
+    @StateObject private var appearance = AppearanceStore()
 
     var body: some Scene {
         WindowGroup {
             DashboardView(viewModel: dashboard)
-                .preferredColorScheme(.dark)
+                .environmentObject(appearance)
+                .preferredColorScheme(appearance.prefersLight ? .light : .dark)
                 .onAppear {
                     dashboard.onAppear()
                 }

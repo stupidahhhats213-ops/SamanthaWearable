@@ -26,6 +26,9 @@
 		A10000000000000000000011 /* MetaGlassesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MetaGlassesService.swift */; };
 		A10000000000000000000013 /* GlassesTelemetryProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* GlassesTelemetryProviding.swift */; };
 		A10000000000000000000019 /* VoiceAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* VoiceAssistantService.swift */; };
+		A10000000000000000000020 /* ConsoleTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* ConsoleTheme.swift */; };
+		A10000000000000000000021 /* ConsoleKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* ConsoleKit.swift */; };
+		A10000000000000000000022 /* ConsoleScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* ConsoleScreens.swift */; };
 		A10000000000000000000014 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000015 /* MWDATCore */; };
 		A10000000000000000000016 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000017 /* MWDATCamera */; };
 /* End PBXBuildFile section */
@@ -52,6 +55,9 @@
 		B10000000000000000000012 /* MetaGlassesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesService.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* GlassesTelemetryProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesTelemetryProviding.swift; sourceTree = "<group>"; };
 		B10000000000000000000019 /* VoiceAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantService.swift; sourceTree = "<group>"; };
+		B10000000000000000000020 /* ConsoleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleTheme.swift; sourceTree = "<group>"; };
+		B10000000000000000000021 /* ConsoleKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleKit.swift; sourceTree = "<group>"; };
+		B10000000000000000000022 /* ConsoleScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleScreens.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +90,7 @@
 				E10000000000000000000006 /* Services */,
 				E10000000000000000000007 /* ViewModels */,
 				E10000000000000000000008 /* Views */,
+				E10000000000000000000009 /* Theme */,
 				B10000000000000000000010 /* Assets.xcassets */,
 				B10000000000000000000011 /* Info.plist */,
 			);
@@ -146,8 +153,18 @@
 				B1000000000000000000000D /* DashboardView.swift */,
 				B1000000000000000000000E /* SettingsView.swift */,
 				B1000000000000000000000F /* StatusRow.swift */,
+				B10000000000000000000021 /* ConsoleKit.swift */,
+				B10000000000000000000022 /* ConsoleScreens.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		E10000000000000000000009 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000020 /* ConsoleTheme.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -244,6 +261,9 @@
 				A1000000000000000000000D /* DashboardView.swift in Sources */,
 				A1000000000000000000000E /* SettingsView.swift in Sources */,
 				A1000000000000000000000F /* StatusRow.swift in Sources */,
+				A10000000000000000000020 /* ConsoleTheme.swift in Sources */,
+				A10000000000000000000021 /* ConsoleKit.swift in Sources */,
+				A10000000000000000000022 /* ConsoleScreens.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,7 +318,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.4.9;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -326,7 +346,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.4.9;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.samantha.wearable;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

@@ -77,6 +77,22 @@ actor SamanthaAPI {
         }
     }
 
+    func console() async throws -> Data {
+        let (data, _) = try await get(path: "/api/wearable/console")
+        return data
+    }
+
+    func projects() async throws -> Data {
+        let (data, _) = try await get(path: "/api/projects")
+        return data
+    }
+
+    func projectStatus(_ id: String) async throws -> Data {
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let (data, _) = try await get(path: "/api/projects/\(encoded)/status")
+        return data
+    }
+
     func register(_ payload: DeviceRegistration) async throws -> RegistrationResponse {
         let body = try encoder.encode(payload)
         let (data, _) = try await post(path: "/api/wearable/register", body: body)
