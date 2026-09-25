@@ -28,6 +28,7 @@ struct HomeScreen: View {
             }
             .padding(appearance.pad)
             .padding(.bottom, 72)
+            .accessibilityIdentifier("homeScroll")
         }
         .accessibilityIdentifier("homeScroll")
         .background(appearance.background)

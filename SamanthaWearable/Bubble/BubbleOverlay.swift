@@ -142,6 +142,7 @@ struct BubbleOverlay: View {
                             }
                         }
                     )
+                    .frame(width: bubbleSide, height: bubbleSide)
                 )
                 .offset(x: bubbleRect.minX, y: bubbleRect.minY)
                 .zIndex(3)

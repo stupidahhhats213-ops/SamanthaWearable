@@ -156,7 +156,7 @@ struct BubbleSession: Equatable {
     mutating func endDrag(at point: CGPoint, bounds: BubbleSafeBounds, snapStrength: Double) {
         position = bounds.snapped(point, strength: snapStrength)
         phase = .collapsed
-        suppressTap = true
+        suppressTap = false
     }
 
     mutating func dismiss() {

@@ -34,7 +34,7 @@ final class BubbleUITests: XCTestCase {
         let app = launch()
         bubble(app).tap()
         app.buttons["bubbleSettings"].tap()
-        XCTAssertTrue(app.otherElements["settingsScreen"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.navigationBars["SETTINGS"].waitForExistence(timeout: 4))
         XCTAssertTrue(bubble(app).exists)
         XCTAssertFalse(app.buttons["bubbleHermes"].exists)
     }
@@ -50,7 +50,7 @@ final class BubbleUITests: XCTestCase {
     func testScrollDoesNotMoveBubble() {
         let app = launch()
         let before = frame(bubble(app))
-        let scroll = app.scrollViews["homeScroll"]
+        let scroll = app.descendants(matching: .any)["homeScroll"]
         XCTAssertTrue(scroll.waitForExistence(timeout: 4))
         scroll.swipeUp()
         scroll.swipeUp()

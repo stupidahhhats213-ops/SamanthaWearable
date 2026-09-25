@@ -44,8 +44,6 @@ final class BubbleGeometryTests: XCTestCase {
         session.endDrag(at: CGPoint(x: 20, y: 200), bounds: bounds(size: CGSize(width: 390, height: 844)), snapStrength: 1)
         XCTAssertEqual(session.phase, .collapsed)
         session.tap()
-        XCTAssertEqual(session.phase, .collapsed)
-        session.tap()
         XCTAssertEqual(session.phase, .expandedPrimary)
     }
 
